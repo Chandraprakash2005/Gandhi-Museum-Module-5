@@ -460,9 +460,8 @@ document.addEventListener('DOMContentLoaded', () => {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     if (execId !== currentExecId) return;
 
-    // Unhide the grid and immediately start the slide animation from the top alone
+    // Unhide the grid. Since we aren't adding an entrance class, it will instantly appear exactly where the old one was in the center.
     gridContainer.style.visibility = 'visible';
-    gridContainer.classList.add('enter-from-top');
 
     // Give the browser 50ms to begin the slide animation smoothly
     await delay(50);
