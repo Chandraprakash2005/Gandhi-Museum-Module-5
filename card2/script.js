@@ -244,7 +244,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const dx = (SIZE - dw) / 2;
         const dy = (SIZE - dh) / 2;
         ctx.drawImage(img, dx, dy, dw, dh);
-        resolve(canvas.toDataURL('image/png'));
+        
+        // Use JPEG instead of PNG for 10x-50x faster encoding on the Raspberry Pi
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
       };
       img.onerror = () => resolve(reformer.image);
       img.src = reformer.image;
@@ -262,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         ctx.drawImage(img, 0, 0, SIZE, SIZE);
 
-        ctx.fillStyle = 'rgba(245, 238, 223, 0.85)';
+        ctx.fillStyle = 'rgba(245, 238, 223, 0.95)'; // Must be almost opaque for text readability
         ctx.fillRect(0, 0, SIZE, SIZE);
 
         function wrapText(text, x, y, maxWidth, lineHeight, maxLines) {
@@ -316,9 +318,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         ctx.fillStyle = '#5c4a3d';
         ctx.font = isTa ? '20px Outfit, sans-serif' : '28px Outfit, sans-serif';
-        wrapText(content.desc, SIZE / 2, cursorY, W - 80, isTa ? 30 : 40, 5);
-
-        resolve(canvas.toDataURL('image/png'));
+        // Fast JPEG encoding
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = () => {
+        console.error("Poster Canvas: Failed to load image", baseImageDataUrl);
+        const SIZE = 1000;
+        const canvas = document.createElement('canvas');
+        canvas.width = SIZE; canvas.height = SIZE;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#f5eedf'; // Solid background fallback for JPEG
+        ctx.fillRect(0, 0, SIZE, SIZE);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
       };
       img.src = baseImageDataUrl;
     });
@@ -384,16 +395,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function delay(ms) {
     return new Promise(resolve => {
-      const t = setTimeout(resolve, ms);
-      activeTimers.push(t);
+      // Don't push to activeTimers so the promise can always resolve, avoiding deadlocks!
+      setTimeout(resolve, ms);
     });
   }
 
+  let currentExecId = 0;
+
   async function showReformerDetails(reformer) {
     if (isAnimating) return;
+    const execId = ++currentExecId;
     isAnimating = true;
     activeReformer = reformer;
     clearTimers();
+    
+    // INSTANTLY hide the grid the exact millisecond the user clicks so the old card vanishes
+    gridContainer.style.visibility = 'hidden';
     
     // Stop any playing audio when switching reformers
     if (currentAudio) {
@@ -411,6 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ENTRANCE_CLASSES.forEach(c => gridContainer.classList.remove(c));
 
+    // Instantly snap all flips back to the front face
     cells.forEach(({ cell, inner }) => {
       inner.style.transition = 'none';
       cell.classList.remove('flipped');
@@ -423,12 +441,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const sc = document.getElementById('scrollable-content');
     sc.classList.remove('visible');
 
-    const squareImgData = await loadSquareImage(reformer);
-    const posterImgData = await renderPosterCanvas(reformer, squareImgData);
+    // Compute the square image dynamically (lightning fast JPEG)
+    if (!reformer.squareImage) {
+      reformer.squareImage = await loadSquareImage(reformer);
+    }
+    const squareImgData = reformer.squareImage;
 
+    // Assign the new perfectly-cropped image to the front face
     cells.forEach(({ front }) => {
       front.style.backgroundImage = `url('${squareImgData}')`;
     });
+    
+    // Force the browser to register the new background images
+    void gridContainer.offsetWidth;
+    
+    // VITAL: Yield exactly 1 frame so the graphics card can upload the new image texture 
+    // while the grid is STILL INVISIBLE. This is the only way to prevent the old image from flashing!
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (execId !== currentExecId) return;
+
+    // Now unhide the grid and start the slide animation with the new image perfectly loaded
+    gridContainer.style.visibility = 'visible';
+    const randomDir = ENTRANCE_CLASSES[Math.floor(Math.random() * ENTRANCE_CLASSES.length)];
+    gridContainer.classList.add(randomDir);
+
+    // Give the browser 50ms to begin the slide animation smoothly
+    await delay(50);
+    if (execId !== currentExecId) return; // abort if interrupted
+
+    // Generate the heavy back text-canvas while it slides
+    // Changed to JPEG so this won't freeze the device
+    const posterImgData = await renderPosterCanvas(reformer, squareImgData);
+    if (execId !== currentExecId) return;
 
     cells.forEach(({ back, col, row }) => {
       const bpX = col === 0 ? '0%' : `${(col / (COLS - 1)) * 100}%`;
@@ -438,41 +482,42 @@ document.addEventListener('DOMContentLoaded', () => {
       back.style.backgroundPosition = `${bpX} ${bpY}`;
     });
 
-    const randomDir = ENTRANCE_CLASSES[Math.floor(Math.random() * ENTRANCE_CLASSES.length)];
-    void gridContainer.offsetWidth;
-    gridContainer.classList.add(randomDir);
+    // Wait for the card to shoot onto the screen before we start flipping
+    await delay(100);
+    if (execId !== currentExecId) return; // abort if interrupted
 
-    await delay(70);
+    // 1. Start drawing grid lines!
 
+    // 2. Draw the grid lines quickly
     for (let n = 0; n < 9; n++) {
-      const t = setTimeout(() => hLines[n].classList.add('drawn'), n * 60);
+      const t = setTimeout(() => hLines[n].classList.add('drawn'), n * 20);
       activeTimers.push(t);
     }
     for (let n = 0; n < 9; n++) {
-      const t = setTimeout(() => vLines[n].classList.add('drawn'), n * 60);
+      const t = setTimeout(() => vLines[n].classList.add('drawn'), n * 20);
       activeTimers.push(t);
     }
 
-    await delay(9 * 6 + 60 + 20);
-
+    // Wait for lines to finish drawing
+    await delay(9 * 20 + 50);
     gridLinesOverlay.classList.add('complete');
-    await delay(400);
 
     cells.forEach(({ inner }) => {
       inner.style.transition = '';
     });
 
-    await delay(200);
-
+    // 3. Flip all the cards column-wise from top to bottom continuously and very fast
     let maxFlipDelay = 0;
     cells.forEach(({ cell, row, col }) => {
-      const flipDelay = (row + col) * 80 + 100;
+      // Spreading the math out slightly to 40ms and 25ms prevents the browser from dropping frames
+      // and gives the eye a perfect, smooth, readable wave to follow.
+      const flipDelay = (col * 40) + (row * 25);
       if (flipDelay > maxFlipDelay) maxFlipDelay = flipDelay;
       const t = setTimeout(() => cell.classList.add('flipped'), flipDelay);
       activeTimers.push(t);
     });
 
-    const hideDelay = maxFlipDelay + 800;
+    const hideDelay = maxFlipDelay + 300;
     const tHide = setTimeout(() => {
       gridLinesOverlay.style.transition = 'opacity 0.5s ease';
       gridLinesOverlay.style.opacity = '0';
@@ -488,6 +533,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // ══════════════════════════════════════════════════════
   //  5. Render sidebar portraits (Split across left and right)
   // ══════════════════════════════════════════════════════
+  // Instructional SVG to be injected into the first portrait
+  const handSvg = `
+    <div class="hand-instruction" id="hand-instruction">
+      <div class="tap-ripple"></div>
+      <svg width="54" height="54" viewBox="0 0 24 24" fill="#5c4a3d" xmlns="http://www.w3.org/2000/svg">
+        <path d="M11 20H15.4C16.1 20 16.7 19.4 16.7 18.7L17 14.5C17.1 13.6 16.5 12.8 15.6 12.6L13 11.8V4.5C13 3.7 12.3 3 11.5 3S10 3.7 10 4.5V13.8L6.8 12.8C6.4 12.7 6 12.8 5.7 13.1L4.5 14.3L8.9 19.2C9.5 19.7 10.2 20 11 20Z" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  `;
+
   reformersData.forEach((reformer, index) => {
     const item = document.createElement('div');
     item.className = 'portrait-item';
@@ -496,10 +551,16 @@ document.addEventListener('DOMContentLoaded', () => {
       <img src="${reformer.image}" alt="${reformer.name}"
            onerror="this.src='https://via.placeholder.com/300x300?text=No+Image'">
       <div class="name-overlay"></div>
+      ${index === 0 ? handSvg : ''}
     `;
 
     item.addEventListener('click', () => {
       if (isAnimating) return;
+      
+      // Hide the hand instruction permanently once the user clicks any card
+      const handInstruction = document.getElementById('hand-instruction');
+      if (handInstruction) handInstruction.classList.add('hidden');
+
       document.querySelectorAll('.portrait-item').forEach(el => el.classList.remove('active'));
       item.classList.add('active');
       showReformerDetails(reformer);
@@ -514,4 +575,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize Language State
   updateUILanguage();
+
+  // ══════════════════════════════════════════════════════
+  //  6. Inactivity Timer (3 Minutes)
+  // ══════════════════════════════════════════════════════
+  let inactivityTimer;
+  function resetInactivityTimer() {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(() => {
+      // 3 minutes of inactivity reached
+      if (isPlaying && currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+        isPlaying = false;
+        btnVoice.childNodes[2].textContent = " " + translations[currentLang].voicePlay;
+      }
+      
+      // Close the center card
+      clearTimers();
+      isAnimating = false;
+      document.querySelectorAll('.portrait-item').forEach(el => el.classList.remove('active'));
+      gridContainer.classList.add('hidden');
+      document.getElementById('content-center').classList.remove('card-active');
+      welcomePlaceholder.style.display = 'block';
+      activeReformer = null;
+
+      // Bring back the hand instruction
+      const handInstruction = document.getElementById('hand-instruction');
+      if (handInstruction) handInstruction.classList.remove('hidden');
+
+    }, 3 * 60 * 1000);
+  }
+
+  // Bind interaction events to reset the timer
+  ['click', 'touchstart', 'mousemove'].forEach(evt => {
+    document.addEventListener(evt, resetInactivityTimer);
+  });
+  
+  // Start the timer initially
+  resetInactivityTimer();
 });
