@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeTimers = [];
   let isAnimating = false;
 
-  const ENTRANCE_CLASSES = ['enter-from-left', 'enter-from-right', 'enter-from-top', 'enter-from-bottom'];
+  const ENTRANCE_CLASSES = ['enter-from-left', 'enter-from-right', 'enter-from-top'];
 
   function clearTimers() {
     activeTimers.forEach(t => clearTimeout(t));
@@ -460,9 +460,10 @@ document.addEventListener('DOMContentLoaded', () => {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     if (execId !== currentExecId) return;
 
-    // Unhide the grid and immediately start the slide animation from the left
+    // Unhide the grid and immediately start the slide animation from a random direction (excluding bottom)
     gridContainer.style.visibility = 'visible';
-    gridContainer.classList.add('enter-from-left');
+    const randomDir = ENTRANCE_CLASSES[Math.floor(Math.random() * ENTRANCE_CLASSES.length)];
+    gridContainer.classList.add(randomDir);
 
     // Give the browser 50ms to begin the slide animation smoothly
     await delay(50);
