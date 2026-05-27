@@ -12,17 +12,23 @@ body {
   height: 100vh;
   overflow: hidden;
 }
-
-
-  font-weight: 600; font-size: 0.95rem; font-family: inherit;
-  background: rgba(255,255,255,0.7);
-  backdrop-filter: blur(10px);
-  padding: 8px 18px; border-radius: 30px;
-  border: 1px solid rgba(0,0,0,0.1);
-  transition: all 0.3s;
-  cursor: pointer;
+/* ── Floating Buttons ────────────────────────────────── */
+.btn-back {
+  position: fixed;
+  top: 10px;
+  left: 15px;
+  z-index: 1000;
 }
-.btn-back:hover, .btn-control:hover { background: rgba(255,255,255,0.9); transform: translateY(-2px); }
+
+.audio-controls {
+  position: fixed;
+  top: 10px;
+  right: 15px;
+  z-index: 1000;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
 
 /* ── Split Layout ────────────────────────────────────── */
 .split-layout {
@@ -34,8 +40,10 @@ body {
 .sidebar-left, .sidebar-right {
   width: 220px; flex-shrink: 0;
   background-color: #f5eedf;
-  background-image: url('assets/bg/sandstone_bg.png');
+  background-image: url('assets/bg/background2.png');
   background-blend-mode: multiply;
+  background-size: cover;
+  background-position: center;
   display: flex; flex-direction: column;
   height: 100vh;
   padding-top: 60px; /* Space for the floating back button */
@@ -55,7 +63,6 @@ body {
 }
 .btn-back:hover, .btn-control:hover { background: rgba(255,255,255,0.9); transform: translateY(-2px); }
 
-/* Main title moved from sidebar to center */
 .main-page-title {
   position: absolute;
   top: 40px;
@@ -63,10 +70,15 @@ body {
   text-align: center;
   font-size: 2.5rem;
   font-weight: 800;
-  color: #8c5a2b;
+  color: #000000;
   z-index: 10;
   text-shadow: 0 2px 4px rgba(255,255,255,0.8);
   pointer-events: none;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.content-center.card-active .main-page-title {
+  opacity: 0;
+  transform: translateY(-20px);
 }
 
 .control-square {
@@ -133,13 +145,12 @@ body {
 
 /* ── Welcome ─────────────────────────────────────────── */
 .welcome-placeholder { text-align: center; user-select: none; }
-.welcome-placeholder h2 { font-size: 2.5rem; color: #8c5a2b; margin-bottom: 10px; }
-.welcome-placeholder p  { font-size: 1.1rem; color: rgba(92, 74, 61, 0.8); }
+.welcome-placeholder h2 { font-size: 2.5rem; color: #000000; margin-bottom: 10px; }
+.welcome-placeholder p  { font-size: 1.1rem; color: #000000; }
 
-/* ── Grid Container ──────────────────────────────────── */
 .grid-container {
   position: relative;
-  --grid-size: min(calc(100vh - 40px), 950px);
+  --grid-size: min(calc(100vh - 60px), 950px);
   width: var(--grid-size);
   height: var(--grid-size);
   opacity: 0;
@@ -271,18 +282,31 @@ body {
   z-index: 10;
   overflow: hidden; /* Lock scrolling */
   opacity: 0; pointer-events: none;
-  transition: opacity 0.8s ease;
+  transition: opacity 1.2s ease;
   padding: 0;
   background-size: cover;
   background-position: center;
-  background-blend-mode: overlay;
-  background-color: rgba(245, 238, 223, 0.85); /* Sandstone overlay */
 
   border-radius: 24px;
   color: #4a3b32;
 }
 .scrollable-content.visible {
   opacity: 1; pointer-events: auto;
+}
+.sc-top-card, .sc-bottom-card {
+  opacity: 0;
+  transform: translateY(-30px);
+  transition: opacity 1.0s cubic-bezier(0.25, 1, 0.5, 1), transform 1.0s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.scrollable-content.visible .sc-top-card {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 0.2s;
+}
+.scrollable-content.visible .sc-bottom-card {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 0.5s;
 }
 .scrollable-content::-webkit-scrollbar { width: 8px; }
 .scrollable-content::-webkit-scrollbar-thumb { background: rgba(140, 90, 43, 0.6); border-radius: 10px; }
@@ -297,7 +321,7 @@ body {
 
 /* Distinct Card Backgrounds for top and bottom halves */
 .sc-card-box {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(253, 250, 246, 0.75);
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
   border-radius: 20px;
@@ -308,6 +332,9 @@ body {
   flex: 1; /* Splits the space 50/50 */
   justify-content: center;
 }
+.sc-top-card {
+  justify-content: flex-start;
+}
 
 .sc-header {
   text-align: center; margin-bottom: 20px;
@@ -316,16 +343,16 @@ body {
 }
 .sc-header::after {
   content: ''; position: absolute; bottom: 0; left: 15%; right: 15%;
-  height: 1px; background: #8c5a2b;
-  box-shadow: 0 3px 0 0 rgba(140, 90, 43, 0.3);
+  height: 1px; background: #000000;
+  box-shadow: 0 3px 0 0 rgba(0, 0, 0, 0.15);
 }
 .sc-subtitle {
-  font-size: 0.95rem; font-weight: 700; color: #000000;
+  font-size: 1.6rem; font-weight: 800; color: #000000;
   letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px;
 }
 .sc-title {
-  font-size: 3rem; font-weight: 800; color: #4a2e15;
-  line-height: 1; margin-bottom: 8px;
+  font-size: 3.4rem; font-weight: 800; color: #000000;
+  line-height: 1.1; margin-bottom: 8px;
   letter-spacing: -1px;
 }
 .sc-years {
@@ -334,11 +361,13 @@ body {
 }
 
 .sc-quote {
-  font-size: 1.25rem; font-style: italic; color: #5c3a21;
-  text-align: center; margin: 0 0 15px 0;
+  font-size: 1.25rem; font-style: italic; color: #000000;
+  text-align: center; margin: 25px 0 15px 0;
   padding: 0 40px;
   position: relative;
-  line-height: 1.4;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  word-spacing: 0.04em;
 }
 .sc-quote::before, .sc-quote::after {
   content: '”';
@@ -350,9 +379,11 @@ body {
 .sc-quote::after { bottom: -20px; right: 10px; }
 
 .sc-desc {
-  font-size: 1.1rem; line-height: 1.6; text-align: justify;
-  margin: 0; color: #4a3b32;
+  font-size: 1.1rem; line-height: 1.65; text-align: justify;
+  margin: 0; color: #000000;
   text-indent: 40px;
+  letter-spacing: 0.02em;
+  word-spacing: 0.04em;
 }
 
 /* Full Width Bottom Section */
@@ -368,7 +399,7 @@ body {
   width: 100%;
 }
 .sc-section-title::before, .sc-section-title::after {
-  content: ''; flex: 1; height: 1px; background: rgba(140, 90, 43, 0.4);
+  content: ''; flex: 1; height: 1px; background: rgba(0, 0, 0, 0.3);
 }
 
 .sc-impact-grid {
@@ -382,9 +413,9 @@ body {
 }
 .sc-impact-heading {
   display: flex; align-items: center; gap: 10px;
-  font-size: 1.15rem; font-weight: 700; color: #7a4b21;
+  font-size: 1.15rem; font-weight: 700; color: #000000;
   margin-bottom: 12px;
-  border-bottom: 1px solid rgba(140, 90, 43, 0.2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.3);
   padding-bottom: 8px;
 }
 .sc-impact-heading svg {
@@ -395,10 +426,55 @@ body {
 }
 .sc-reforms li {
   position: relative; padding-left: 35px; margin-bottom: 22px; /* Increased space between points */
-  font-size: 1.1rem; line-height: 1.5; color: #4a3b32;
+  font-size: 1.1rem; line-height: 1.6; color: #000000;
+  letter-spacing: 0.02em;
+  word-spacing: 0.04em;
 }
 .sc-reforms li::before {
   content: '✦';
   position: absolute; left: 0; top: 0px;
   font-size: 1.2rem; color: #8c5a2b;
+}
+
+/* ── Tamil Specific Sizing & Font-Weight Adjustments ── */
+.lang-ta .main-page-title {
+  font-size: 2.0rem;
+  font-weight: 800;
+}
+.lang-ta .welcome-placeholder h2 {
+  font-size: 2.0rem;
+  font-weight: 800;
+}
+.lang-ta .welcome-placeholder p {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.lang-ta .sc-title {
+  font-size: 2.0rem; /* Reduced from 2.8rem */
+  font-weight: 800;
+}
+.lang-ta .sc-quote {
+  font-size: 0.95rem; /* Reduced from 1.15rem */
+  line-height: 1.45;
+}
+.lang-ta .sc-desc {
+  font-size: 0.9rem; /* Reduced from 1.05rem */
+  line-height: 1.5;
+}
+.lang-ta .sc-section-title {
+  font-size: 0.95rem; /* Reduced from 1.05rem */
+  font-weight: 800;
+}
+.lang-ta .sc-impact-heading {
+  font-size: 0.95rem; /* Reduced from 1.05rem */
+  font-weight: 800;
+}
+.lang-ta .sc-reforms li {
+  font-size: 0.9rem; /* Reduced from 1.05rem */
+  line-height: 1.45;
+  margin-bottom: 14px;
+}
+.lang-ta .sc-subtitle {
+  font-size: 1.1rem; /* Reduced from 1.45rem */
+  font-weight: 800;
 }

@@ -3,6 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
+app.commandLine.appendSwitch('ignore-certificate-errors');
+app.commandLine.appendSwitch('log-level', '3');
+
 const rootDir = __dirname;
 const piperExe = path.join(rootDir, 'assets', 'Voice model', 'piper', 'piper.exe');
 const enModel = path.join(rootDir, 'assets', 'Voice model', 'models', 'en_US-lessac-medium.onnx');
@@ -10,19 +13,25 @@ const taModel = path.join(rootDir, 'assets', 'Voice model', 'models', 'ta_IN-Val
 
 // Cleanup function to delete all .wav files in assets/card folders
 function cleanupAudio() {
-  const cardsDir = [
-    path.join(rootDir, 'assets', 'Voice model', 'cards', 'card1'), 
-    path.join(rootDir, 'assets', 'Voice model', 'cards', 'card2')
-  ];
-  cardsDir.forEach(dir => {
-    if (!fs.existsSync(dir)) return;
-    const files = fs.readdirSync(dir);
-    files.forEach(file => {
-      if (file.endsWith('.wav')) {
-        try { fs.unlinkSync(path.join(dir, file)); } catch (e) {}
+  const cardsParentDir = path.join(rootDir, 'assets', 'cards');
+  if (!fs.existsSync(cardsParentDir)) return;
+  
+  try {
+    const subdirs = fs.readdirSync(cardsParentDir);
+    subdirs.forEach(subdir => {
+      const dirPath = path.join(cardsParentDir, subdir);
+      if (fs.statSync(dirPath).isDirectory()) {
+        const files = fs.readdirSync(dirPath);
+        files.forEach(file => {
+          if (file.endsWith('.wav')) {
+            try { fs.unlinkSync(path.join(dirPath, file)); } catch (e) {}
+          }
+        });
       }
     });
-  });
+  } catch (err) {
+    console.error("Audio cleanup error:", err);
+  }
 }
 
 // Global TTS Queue
@@ -81,10 +90,14 @@ ipcMain.handle('generate-tts', async (event, { text, lang, outputPath, priority 
   });
 });
 
+ipcMain.on('log', (event, ...args) => {
+  console.log('[RENDERER LOG]', ...args);
+});
+
 // Auto-queue all data
 function queueAllCards() {
-  const c1Dir = path.join(rootDir, 'assets', 'Voice model', 'cards', 'card1');
-  const c2Dir = path.join(rootDir, 'assets', 'Voice model', 'cards', 'card2');
+  const c1Dir = path.join(rootDir, 'assets', 'cards', 'card1');
+  const c2Dir = path.join(rootDir, 'assets', 'cards', 'card2');
   
   // Card 1
   try {
@@ -115,7 +128,45 @@ function queueAllCards() {
         });
       }
     }
-  } catch(e) {}
+    if (c1Data && c1Data.features && c1Data.features.rifle) {
+      const rifle = c1Data.features.rifle;
+      const textEn = `${rifle.title} Calibre: ${rifle.details.Calibre}. Loading Mechanism: ${rifle.details.LoadingMechanism}. Lock Type: ${rifle.details.LockType}. Origin: ${rifle.details.Origin}. Ammunition: ${rifle.details.Ammunition}`;
+      const textTa = `${rifle.title_ta} கலிபர்: ${rifle.details_ta["கலிபர்"]}. ஏற்றும் முறை: ${rifle.details_ta["ஏற்றும் முறை"]}. விசை வகை: ${rifle.details_ta["விசை வகை"]}. தயாரிப்பு: ${rifle.details_ta["தயாரிப்பு"]}. வெடிமருந்து: ${rifle.details_ta["வெடிமருந்து"]}`;
+      ttsQueue.push({ text: textEn, lang: 'en', outputPath: path.join(c1Dir, 'rifle_en.wav') });
+      ttsQueue.push({ text: textTa, lang: 'ta', outputPath: path.join(c1Dir, 'rifle_ta.wav') });
+    }
+    // Pre-queue map instructions
+    const mapTextEn = "Map Trace of the Sepoy Mutiny 1857. Tap the red pulsing dots on the map to explore key historical events.";
+    const mapTextTa = "1857 சிப்பாய் கலகத்தின் வரைபடப் பாதை. வரைபடத்தில் உள்ள சிவப்பு நிற துடிக்கும் புள்ளிகளைத் தட்டி முக்கிய வரலாற்று நிகழ்வுகளை ஆராயுங்கள்.";
+    ttsQueue.push({ text: mapTextEn, lang: 'en', outputPath: path.join(c1Dir, 'map_en.wav') });
+    ttsQueue.push({ text: mapTextTa, lang: 'ta', outputPath: path.join(c1Dir, 'map_ta.wav') });
+
+    // Pre-queue map location texts
+    if (c1Data && c1Data.features && c1Data.features.map && c1Data.features.map.locations) {
+      c1Data.features.map.locations.forEach(loc => {
+        const pointsListEn = loc.points;
+        const nameTextEn = loc.name;
+        const textEn = `${nameTextEn}. ${pointsListEn.join('. ')}`;
+        
+        const pointsListTa = loc.points_ta || loc.points;
+        const nameTextTa = loc.name_ta || loc.name;
+        const textTa = `${nameTextTa}. ${pointsListTa.join('. ')}`;
+
+        ttsQueue.push({
+          text: textEn,
+          lang: 'en',
+          outputPath: path.join(c1Dir, `map_loc_${loc.id}_en.wav`)
+        });
+        ttsQueue.push({
+          text: textTa,
+          lang: 'ta',
+          outputPath: path.join(c1Dir, `map_loc_${loc.id}_ta.wav`)
+        });
+      });
+    }
+  } catch(e) {
+    console.error("Error queueing card1 cards:", e);
+  }
   
   // Card 2
   try {
@@ -128,24 +179,26 @@ function queueAllCards() {
         if (r.ta && r.ta.quote) ttsQueue.push({ text: r.ta.quote, lang: 'ta', outputPath: path.join(c2Dir, `${r.id}_quote_ta.wav`) });
       });
     }
-  } catch(e) {}
+  } catch(e) {
+    console.error("Error queueing card2 cards:", e);
+  }
   
   processQueue();
 }
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
-    width: 1920,
-    height: 1080,
-    kiosk: true,
-    fullscreen: true,
+    width: 1280,
+    height: 800,
+    kiosk: false,       // ← disabled for laptop testing
+    fullscreen: false,  // ← disabled for laptop testing
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
     }
   });
 
-  mainWindow.setMenuBarVisibility(false);
+  mainWindow.setMenuBarVisibility(true); // show menu bar for easy close
   mainWindow.loadFile('index.html');
 }
 

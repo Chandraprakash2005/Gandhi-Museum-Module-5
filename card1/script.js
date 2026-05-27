@@ -2,28 +2,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const data = window.uprisingData;
   if (!data) return;
 
-  const btnLang = document.getElementById('btn-lang');
-  const langText = document.getElementById('lang-text');
-  const btnVoice = document.getElementById('btn-voice');
-  const voiceText = document.getElementById('voice-text');
   const audioNarration = document.getElementById('audio-narration');
   
   const { ipcRenderer } = require('electron');
   const path = require('path');
 
-  let currentLang = 'ta';
+  let panelLanguages = ['ta', 'ta', 'ta', 'ta'];
   let isVoicePlaying = false;
   let currentPlaybackQueue = [];
   let currentPlaybackIndex = 0;
   let activeLocation = null;
   let scrollTimeout;
+  let isTranslating = false;
 
   const translations = {
     en: {
       back: "Back",
       voicePlay: "Voice",
       voiceStop: "Stop",
-      mapInstruction: "Tap the red pulsing dots on the map to explore key historical events.",
+      mapInstruction: "Press the red dots",
       close: "Close",
       loading: "Loading..."
     },
@@ -31,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
       back: "பின்செல்",
       voicePlay: "குரல்",
       voiceStop: "நிறுத்து",
-      mapInstruction: "வரைபடத்தில் உள்ள சிவப்பு நிற துடிக்கும் புள்ளிகளைத் தட்டி முக்கிய வரலாற்று நிகழ்வுகளை ஆராயுங்கள்.",
+      mapInstruction: "சிவப்புப் புள்ளிகளை அழுத்தவும்",
       close: "மூடுக",
       loading: "ஏற்றப்படுகிறது..."
     }
@@ -90,160 +87,196 @@ document.addEventListener('DOMContentLoaded', () => {
   }, observerOptions);
 
   // Render and update UI based on selected language
+  // Render a specific panel
+  function renderPanel(panelIndex) {
+    const lang = panelLanguages[panelIndex];
+    const t = translations[lang];
+    const panels = document.querySelectorAll('.panel');
+    const panel = panels[panelIndex];
+    if (!panel) return;
+    
+    // Update this panel's specific language toggle button text
+    const langTextEl = panel.querySelector('.lang-text');
+    if (langTextEl) {
+      langTextEl.textContent = lang === 'en' ? 'தமிழ்' : 'ENGLISH';
+    }
+    
+    // Update this panel's specific voice button text
+    const voiceTextEl = panel.querySelector('.voice-text');
+    if (voiceTextEl) {
+      voiceTextEl.textContent = isVoicePlaying && getCurrentPanelIndex() === panelIndex ? t.voiceStop : t.voicePlay;
+    }
+    
+    if (panelIndex === 0) {
+      // 1. Render Hero Panel content
+      document.getElementById('main-title').textContent = lang === 'ta' ? data.title_ta : data.title;
+      
+      const introContainer = document.getElementById('intro-text');
+      introContainer.innerHTML = '';
+      const descSource = lang === 'ta' ? data.description_ta : data.description;
+      descSource.forEach(p => {
+        const pEl = document.createElement('p');
+        pEl.textContent = p;
+        introContainer.appendChild(pEl);
+      });
+
+      const quotesContainer = document.getElementById('quotes-container');
+      quotesContainer.innerHTML = '';
+      const quotesSource = lang === 'ta' ? data.quotes_ta : data.quotes;
+      quotesSource.forEach(q => {
+        const qEl = document.createElement('div');
+        qEl.className = 'quote-card';
+        qEl.innerHTML = `
+          <div class="quote-text">${q.text}</div>
+          <div class="quote-author">- ${q.author}</div>
+        `;
+        quotesContainer.appendChild(qEl);
+      });
+      
+      // Update Back button text
+      const backBtn = document.querySelector('.btn-back');
+      if (backBtn && backBtn.childNodes.length > 2) {
+        backBtn.childNodes[2].textContent = " " + t.back;
+      }
+      
+    } else if (panelIndex === 1) {
+      // 2. Render Timeline Panel content
+      document.getElementById('timeline-title').textContent = lang === 'ta' ? data.features.timeline.title_ta : data.features.timeline.title;
+      const timelineTrack = document.getElementById('timeline-track');
+      timelineTrack.innerHTML = '';
+      
+      const eventsSource = lang === 'ta' ? data.features.timeline.events_ta : data.features.timeline.events;
+      eventsSource.forEach((ev) => {
+        const evEl = document.createElement('div');
+        evEl.className = 'timeline-event';
+        
+        const dot = document.createElement('div');
+        dot.className = 'timeline-dot';
+        evEl.appendChild(dot);
+        
+        const content = document.createElement('div');
+        content.className = 'timeline-content';
+        
+        let imageHtml = '';
+        if (ev.image) {
+          imageHtml = `<img src="${ev.image}" alt="${ev.title}" class="timeline-image">`;
+        }
+
+        content.innerHTML = `
+          ${imageHtml}
+          <div class="timeline-date">${ev.date}</div>
+          <h3 class="timeline-title">${ev.title}</h3>
+          <div class="timeline-desc">${ev.description}</div>
+        `;
+        evEl.appendChild(content);
+        timelineTrack.appendChild(evEl);
+      });
+
+      // Attach IntersectionObserver to the new timeline cards
+      document.querySelectorAll('.timeline-event').forEach(el => {
+        observer.observe(el);
+      });
+      
+    } else if (panelIndex === 2) {
+      // 3. Render Map Panel content
+      document.getElementById('map-title').textContent = lang === 'ta' ? data.features.map.title_ta : data.features.map.title;
+      const mapMarkersContainer = document.getElementById('map-markers');
+      mapMarkersContainer.innerHTML = '';
+      
+      data.features.map.locations.forEach(loc => {
+        if (positions[loc.name]) {
+          const marker = document.createElement('div');
+          marker.className = 'map-marker';
+          
+          const hasDetails = loc.points && loc.points.length > 0 && loc.points[0] !== "A principal center during the 1857 revolt.";
+          if (hasDetails) {
+            marker.classList.add('detailed');
+          }
+
+          marker.style.top = positions[loc.name].top;
+          marker.style.left = positions[loc.name].left;
+          
+          const label = document.createElement('span');
+          label.className = 'map-label';
+          label.textContent = lang === 'ta' ? loc.name_ta : loc.name;
+          if (positions[loc.name].labelPos === 'left') {
+            label.classList.add('label-left');
+          }
+          marker.appendChild(label);
+          
+          marker.addEventListener('click', () => showMapInfo(loc));
+          mapMarkersContainer.appendChild(marker);
+        }
+      });
+
+      // Update Map instructions text
+      const mapInst = panel.querySelector('.map-instruction p');
+      if (mapInst) {
+        mapInst.textContent = t.mapInstruction;
+      }
+      
+      // Update Map Info close button
+      const closeMapInfoBtn = document.getElementById('close-map-info');
+      if (closeMapInfoBtn) {
+        closeMapInfoBtn.textContent = t.close;
+      }
+
+      // Refresh active location details popup if it is open
+      if (activeLocation) {
+        const loc = activeLocation;
+        document.getElementById('map-info-title').textContent = lang === 'ta' ? loc.name_ta : loc.name;
+        
+        const ul = document.getElementById('map-info-points');
+        if (ul) {
+          ul.innerHTML = '';
+          const pointsList = lang === 'ta' ? loc.points_ta : loc.points;
+          pointsList.forEach(pt => {
+            const li = document.createElement('li');
+            li.textContent = pt;
+            ul.appendChild(li);
+          });
+        }
+        if (closeMapInfoBtn) {
+          closeMapInfoBtn.textContent = t.close;
+        }
+      }
+      
+    } else if (panelIndex === 3) {
+      // 4. Render Rifle Panel content
+      document.getElementById('rifle-title').textContent = lang === 'ta' ? data.features.rifle.title_ta : data.features.rifle.title;
+      const rifleDetails = document.getElementById('rifle-details');
+      rifleDetails.innerHTML = '';
+      
+      const detailsSource = lang === 'ta' ? data.features.rifle.details_ta : data.features.rifle.details;
+      Object.entries(detailsSource).forEach(([key, value]) => {
+        const detailEl = document.createElement('div');
+        detailEl.className = 'detail-item';
+        
+        const label = lang === 'en' ? key.replace(/([A-Z])/g, ' $1').trim() : key;
+        
+        detailEl.innerHTML = `
+          <div class="detail-label">${label}</div>
+          <div class="detail-value">${value}</div>
+        `;
+        rifleDetails.appendChild(detailEl);
+      });
+      initWeaponSlideshow();
+    }
+  }
+
+  // Render and update UI based on selected language
   function renderContent() {
-    const t = translations[currentLang];
-    document.body.classList.toggle('lang-ta', currentLang === 'ta');
-    
-    // Update Back button text
-    const backBtn = document.querySelector('.btn-back');
-    if (backBtn && backBtn.childNodes.length > 2) {
-      backBtn.childNodes[2].textContent = " " + t.back;
-    }
-    
-    // Update Language control button text to show the opposite language
-    langText.textContent = currentLang === 'en' ? 'தமிழ்' : 'ENGLISH';
-    
-    // Update Voice control button text
-    if (voiceText) {
-      voiceText.textContent = isVoicePlaying ? t.voiceStop : t.voicePlay;
-    }
-
-    // Update Map instructions text
-    const mapInst = document.querySelector('.map-instruction p');
-    if (mapInst) {
-      mapInst.textContent = t.mapInstruction;
-    }
-    
-    // Update Map Info close button
-    const closeMapInfoBtn = document.getElementById('close-map-info');
-    if (closeMapInfoBtn) {
-      closeMapInfoBtn.textContent = t.close;
-    }
-
-    // 1. Render Hero Panel content
-    document.getElementById('main-title').textContent = currentLang === 'ta' ? data.title_ta : data.title;
-    
-    const introContainer = document.getElementById('intro-text');
-    introContainer.innerHTML = '';
-    const descSource = currentLang === 'ta' ? data.description_ta : data.description;
-    descSource.forEach(p => {
-      const pEl = document.createElement('p');
-      pEl.textContent = p;
-      introContainer.appendChild(pEl);
+    panelLanguages.forEach((_, idx) => {
+      renderPanel(idx);
     });
-
-    const quotesContainer = document.getElementById('quotes-container');
-    quotesContainer.innerHTML = '';
-    const quotesSource = currentLang === 'ta' ? data.quotes_ta : data.quotes;
-    quotesSource.forEach(q => {
-      const qEl = document.createElement('div');
-      qEl.className = 'quote-card';
-      qEl.innerHTML = `
-        <div class="quote-text">${q.text}</div>
-        <div class="quote-author">- ${q.author}</div>
-      `;
-      quotesContainer.appendChild(qEl);
-    });
-
-    // 2. Render Timeline Panel content
-    document.getElementById('timeline-title').textContent = currentLang === 'ta' ? data.features.timeline.title_ta : data.features.timeline.title;
-    const timelineTrack = document.getElementById('timeline-track');
-    timelineTrack.innerHTML = '';
-    
-    const eventsSource = currentLang === 'ta' ? data.features.timeline.events_ta : data.features.timeline.events;
-    eventsSource.forEach((ev) => {
-      const evEl = document.createElement('div');
-      evEl.className = 'timeline-event';
-      
-      const dot = document.createElement('div');
-      dot.className = 'timeline-dot';
-      evEl.appendChild(dot);
-      
-      const content = document.createElement('div');
-      content.className = 'timeline-content';
-      
-      let imageHtml = '';
-      if (ev.image) {
-        imageHtml = `<img src="${ev.image}" alt="${ev.title}" class="timeline-image">`;
-      }
-
-      content.innerHTML = `
-        ${imageHtml}
-        <div class="timeline-date">${ev.date}</div>
-        <h3 class="timeline-title">${ev.title}</h3>
-        <div class="timeline-desc">${ev.description}</div>
-      `;
-      evEl.appendChild(content);
-      timelineTrack.appendChild(evEl);
-    });
-
-    // Attach IntersectionObserver to the new timeline cards
-    document.querySelectorAll('.timeline-event').forEach(el => {
-      observer.observe(el);
-    });
-
-    // 3. Render Map Panel content
-    document.getElementById('map-title').textContent = currentLang === 'ta' ? data.features.map.title_ta : data.features.map.title;
-    const mapMarkersContainer = document.getElementById('map-markers');
-    mapMarkersContainer.innerHTML = '';
-    
-    data.features.map.locations.forEach(loc => {
-      if (positions[loc.name]) {
-        const marker = document.createElement('div');
-        marker.className = 'map-marker';
-        
-        const hasDetails = loc.points && loc.points.length > 0 && loc.points[0] !== "A principal center during the 1857 revolt.";
-        if (hasDetails) {
-          marker.classList.add('detailed');
-        }
-
-        marker.style.top = positions[loc.name].top;
-        marker.style.left = positions[loc.name].left;
-        
-        const label = document.createElement('span');
-        label.className = 'map-label';
-        label.textContent = currentLang === 'ta' ? loc.name_ta : loc.name;
-        if (positions[loc.name].labelPos === 'left') {
-          label.classList.add('label-left');
-        }
-        marker.appendChild(label);
-        
-        marker.addEventListener('click', () => showMapInfo(loc));
-        mapMarkersContainer.appendChild(marker);
-      }
-    });
-
-    // Refresh active location details popup if it is open
-    if (activeLocation) {
-      showMapInfo(activeLocation);
-    }
-
-    // 4. Render Rifle Panel content
-    document.getElementById('rifle-title').textContent = currentLang === 'ta' ? data.features.rifle.title_ta : data.features.rifle.title;
-    const rifleDetails = document.getElementById('rifle-details');
-    rifleDetails.innerHTML = '';
-    
-    const detailsSource = currentLang === 'ta' ? data.features.rifle.details_ta : data.features.rifle.details;
-    Object.entries(detailsSource).forEach(([key, value]) => {
-      const detailEl = document.createElement('div');
-      detailEl.className = 'detail-item';
-      
-      const label = currentLang === 'en' ? key.replace(/([A-Z])/g, ' $1').trim() : key;
-      
-      detailEl.innerHTML = `
-        <div class="detail-label">${label}</div>
-        <div class="detail-value">${value}</div>
-      `;
-      rifleDetails.appendChild(detailEl);
-    });
-    initWeaponSlideshow();
   }
 
   // Populate Location Details Modal
   function showMapInfo(loc) {
     activeLocation = loc;
+    const lang = panelLanguages[2];
     
-    document.getElementById('map-info-title').textContent = currentLang === 'ta' ? loc.name_ta : loc.name;
+    document.getElementById('map-info-title').textContent = lang === 'ta' ? loc.name_ta : loc.name;
     document.getElementById('map-info-date').textContent = loc.date || '';
     
     const imageContainer = document.getElementById('map-info-image-container');
@@ -339,7 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Populate translated bullet points
     const ul = document.getElementById('map-info-points');
     ul.innerHTML = '';
-    const pointsList = currentLang === 'ta' ? loc.points_ta : loc.points;
+    const pointsList = lang === 'ta' ? loc.points_ta : loc.points;
     pointsList.forEach(pt => {
       const li = document.createElement('li');
       li.textContent = pt;
@@ -348,6 +381,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const mapInfo = document.getElementById('map-info');
     mapInfo.classList.remove('hidden');
+    
+    if (isVoicePlaying) {
+      playActiveContextVoice();
+    }
   }
 
   // Handle map modal closing
@@ -356,30 +393,97 @@ document.addEventListener('DOMContentLoaded', () => {
     const mapInfo = document.getElementById('map-info');
     mapInfo.classList.add('hidden');
     activeLocation = null;
+    
+    if (isVoicePlaying) {
+      playActiveContextVoice();
+    }
   });
 
   // Language Change Control
-  btnLang.addEventListener('click', () => {
-    currentLang = currentLang === 'en' ? 'ta' : 'en';
+  function handleLangChange(panelIndex) {
+    if (panelIndex === undefined || panelIndex < 0) return;
+    isTranslating = true;
     
-    if (isVoicePlaying) {
-      audioNarration.pause();
-      isVoicePlaying = false;
-      currentPlaybackQueue = [];
+    // Disable snapping temporarily during translation reflow
+    document.documentElement.classList.add('no-snap');
+    
+    // Save current active panel index and relative scroll offset inside that panel
+    const panelsBefore = document.querySelectorAll('.panel');
+    let relativeScrollY = 0;
+    // Only Timeline (index 1) needs a relative offset because it is a long scrolling section.
+    // For single-screen slides (Hero, Map, Weapon), we reset relativeScrollY to 0 so they align perfectly at top.
+    if (panelIndex === 1 && panelsBefore[panelIndex]) {
+      relativeScrollY = window.scrollY - panelsBefore[panelIndex].offsetTop;
     }
     
-    renderContent();
-  });
+    ipcRenderer.send('log', 'Language switch clicked', {
+      panelIndex,
+      lang: panelLanguages[panelIndex],
+      scrollY: window.scrollY,
+      panelBeforeOffset: panelsBefore[panelIndex] ? panelsBefore[panelIndex].offsetTop : null,
+      relativeScrollY
+    });
+    
+    panelLanguages[panelIndex] = panelLanguages[panelIndex] === 'en' ? 'ta' : 'en';
+    
+    if (isVoicePlaying && getCurrentPanelIndex() === panelIndex) {
+      stopVoice();
+    }
+    
+    renderPanel(panelIndex);
+    
+    // Scroll to the same relative position in the newly rendered layout
+    const panelsAfter = document.querySelectorAll('.panel');
+    if (panelsAfter[panelIndex]) {
+      const targetY = panelsAfter[panelIndex].offsetTop + relativeScrollY;
+      
+      ipcRenderer.send('log', 'Realigning viewport to targetY', {
+        panelAfterOffset: panelsAfter[panelIndex].offsetTop,
+        targetY
+      });
+      
+      window.scrollTo(0, targetY);
+      
+      // Ensure snap positions are aligned after the DOM reflow completes
+      setTimeout(() => {
+        window.scrollTo(0, targetY);
+        document.documentElement.classList.remove('no-snap');
+        isTranslating = false;
+        ipcRenderer.send('log', 'Snap re-enabled, scrollY is:', window.scrollY);
+      }, 150); // Use 150ms to ensure the browser has completed layout on slow hardware
+    } else {
+      document.documentElement.classList.remove('no-snap');
+      isTranslating = false;
+    }
+  }
 
   // Determine current active panel section based on viewport scroll positioning
   function getCurrentPanelIndex() {
     const panels = document.querySelectorAll('.panel');
+    const scrollY = window.scrollY;
     let activeIndex = 0;
+    
+    // Only transition to the next panel if it occupies at least 15% of the viewport height
+    const threshold = window.innerHeight * 0.15;
+    
     panels.forEach((p, index) => {
-      if (window.scrollY >= p.offsetTop - (window.innerHeight / 2)) {
+      if (scrollY >= p.offsetTop - threshold) {
         activeIndex = index;
       }
     });
+
+    // Automatically close the Map location details modal if the user scrolls away from the Map panel
+    if (activeIndex !== 2 && activeLocation) {
+      const mapInfo = document.getElementById('map-info');
+      if (mapInfo) {
+        mapInfo.classList.add('hidden');
+      }
+      activeLocation = null;
+      if (isVoicePlaying) {
+        stopVoice();
+      }
+    }
+
     return activeIndex;
   }
 
@@ -403,130 +507,209 @@ document.addEventListener('DOMContentLoaded', () => {
     return centeredIndex;
   }
 
-  // Audio queue runner
-  async function playNextInQueue() {
-    if (currentPlaybackIndex >= currentPlaybackQueue.length) {
-      isVoicePlaying = false;
-      voiceText.textContent = translations[currentLang].voicePlay;
-      return;
+  // Stop voice narration
+  function stopVoice() {
+    audioNarration.pause();
+    isVoicePlaying = false;
+    
+    panelLanguages.forEach((lang, panelIndex) => {
+      const panel = document.querySelectorAll('.panel')[panelIndex];
+      if (panel) {
+        panel.querySelectorAll('.voice-text').forEach(el => {
+          el.textContent = translations[lang].voicePlay;
+        });
+      }
+    });
+    
+    currentPlaybackQueue = [];
+    resetInactivity();
+  }
+
+  // Start voice narration in the active context
+  function startVoice() {
+    isVoicePlaying = true;
+    
+    const panelIndex = getCurrentPanelIndex();
+    const panel = document.querySelectorAll('.panel')[panelIndex];
+    if (panel) {
+      const lang = panelLanguages[panelIndex];
+      panel.querySelectorAll('.voice-text').forEach(el => {
+        el.textContent = translations[lang].voiceStop;
+      });
     }
     
-    const item = currentPlaybackQueue[currentPlaybackIndex];
-    
+    playActiveContextVoice();
+  }
+
+  // Plays a single TTS narration
+  async function playSingleTTS(panelIndex, text, fileName, onEndedCallback) {
+    const targetSrc = `../assets/cards/card1/${fileName}`;
+    if (isVoicePlaying && audioNarration.src.includes(fileName) && !audioNarration.paused) {
+      return;
+    }
+
+    const panel = document.querySelectorAll('.panel')[panelIndex];
+    const lang = panelLanguages[panelIndex];
+    const t = translations[lang];
+
     try {
-      const outputPath = path.join(__dirname, '..', 'assets', 'cards', 'card1', item.fileName);
+      if (panel) {
+        panel.querySelectorAll('.btn-voice').forEach(btn => {
+          btn.style.pointerEvents = 'none';
+          btn.style.opacity = '0.7';
+        });
+        panel.querySelectorAll('.voice-text').forEach(el => {
+          el.textContent = t.loading;
+        });
+      }
+
+      const outputPath = path.join(__dirname, '..', 'assets', 'cards', 'card1', fileName);
+      
       await ipcRenderer.invoke('generate-tts', {
-        text: item.text,
-        lang: currentLang,
+        text: text,
+        lang: lang,
         outputPath: outputPath,
         priority: true
       });
       
-      // If a DOM element is targeted, scroll to center it on the screen
-      if (item.element) {
-        const topPos = item.element.getBoundingClientRect().top + window.scrollY;
-        window.scrollTo({
-          top: topPos - (window.innerHeight / 2) + (item.element.offsetHeight / 2),
-          behavior: 'smooth'
-        });
-      }
+      if (!isVoicePlaying) return;
       
-      audioNarration.src = `../assets/cards/card1/${item.fileName}?t=` + Date.now();
+      audioNarration.src = `${targetSrc}?t=` + Date.now();
       await audioNarration.play();
       
-      isVoicePlaying = true;
-      voiceText.textContent = translations[currentLang].voiceStop;
+      if (panel) {
+        panel.querySelectorAll('.voice-text').forEach(el => {
+          el.textContent = t.voiceStop;
+        });
+      }
+      stopAutoScroll();
       
       audioNarration.onended = () => {
-        currentPlaybackIndex++;
-        playNextInQueue();
+        if (panel) {
+          panel.querySelectorAll('.btn-voice').forEach(btn => {
+            btn.style.pointerEvents = 'auto';
+            btn.style.opacity = '1';
+          });
+        }
+        if (onEndedCallback) {
+          onEndedCallback();
+        } else {
+          stopVoice();
+        }
       };
       
     } catch (err) {
       console.error("TTS Generation Error:", err);
-      voiceText.textContent = 'Error';
+      if (panel) {
+        panel.querySelectorAll('.voice-text').forEach(el => {
+          el.textContent = 'Error';
+        });
+      }
       isVoicePlaying = false;
+      resetInactivity();
     } finally {
-      btnVoice.style.pointerEvents = 'auto';
-      btnVoice.style.opacity = '1';
+      if (panel) {
+        panel.querySelectorAll('.btn-voice').forEach(btn => {
+          btn.style.pointerEvents = 'auto';
+          btn.style.opacity = '1';
+        });
+      }
     }
   }
 
-  // Audio Voice Button Click
-  btnVoice.addEventListener('click', () => {
-    if (isVoicePlaying) {
-      audioNarration.pause();
-      isVoicePlaying = false;
-      voiceText.textContent = translations[currentLang].voicePlay;
-      currentPlaybackQueue = [];
-    } else {
-      voiceText.textContent = translations[currentLang].loading;
-      btnVoice.style.pointerEvents = 'none';
-      btnVoice.style.opacity = '0.7';
+  // Determine active context and trigger play
+  async function playActiveContextVoice() {
+    if (!isVoicePlaying) return;
+
+    const panelIndex = getCurrentPanelIndex();
+    const lang = panelLanguages[panelIndex];
+    
+    if (panelIndex === 0) {
+      // Hero Panel - Intro Text
+      const text = lang === 'en' 
+        ? window.uprisingData.description.join(' ')
+        : window.uprisingData.description_ta.join(' ');
+      await playSingleTTS(panelIndex, text, `intro_${lang}.wav`);
       
-      const panelIndex = getCurrentPanelIndex();
-      currentPlaybackQueue = [];
+    } else if (panelIndex === 1) {
+      // Timeline Panel - Events
+      const centeredIdx = getCenteredTimelineCardIndex();
+      const events = window.uprisingData.features.timeline.events;
+      const eventsTa = window.uprisingData.features.timeline.events_ta || events;
+      const eventElements = document.querySelectorAll('.timeline-event');
       
-      if (panelIndex === 0) {
-        // Hero Panel - Intro Text
-        const textToSpeak = currentLang === 'en' 
-          ? window.uprisingData.description.join(' ')
-          : window.uprisingData.description_ta.join(' ');
-        currentPlaybackQueue.push({
-          text: textToSpeak,
-          fileName: `intro_${currentLang}.wav`,
-          element: null
-        });
-      } else if (panelIndex === 1) {
-        // Timeline Panel - Events
-        const events = window.uprisingData.features.timeline.events;
-        const eventsTa = window.uprisingData.features.timeline.events_ta || events;
-        const eventElements = document.querySelectorAll('.timeline-event');
+      if (centeredIdx < events.length) {
+        const ev = events[centeredIdx];
+        const evTa = eventsTa[centeredIdx];
+        const text = lang === 'en' ? ev.description : evTa.description;
         
-        events.forEach((ev, i) => {
-          currentPlaybackQueue.push({
-            text: currentLang === 'en' ? ev.description : eventsTa[i].description,
-            fileName: `timeline_${i}_${currentLang}.wav`,
-            element: eventElements[i]
+        currentPlaybackIndex = centeredIdx;
+        
+        // Auto scroll to center the active card
+        const element = eventElements[centeredIdx];
+        if (element) {
+          const topPos = element.getBoundingClientRect().top + window.scrollY;
+          window.scrollTo({
+            top: topPos - (window.innerHeight / 2) + (element.offsetHeight / 2),
+            behavior: 'smooth'
           });
+        }
+        
+        await playSingleTTS(panelIndex, text, `timeline_${centeredIdx}_${lang}.wav`, () => {
+          if (isVoicePlaying && getCurrentPanelIndex() === 1) {
+            const nextIdx = currentPlaybackIndex + 1;
+            if (nextIdx < events.length) {
+              const nextEl = eventElements[nextIdx];
+              if (nextEl) {
+                const topPos = nextEl.getBoundingClientRect().top + window.scrollY;
+                window.scrollTo({
+                  top: topPos - (window.innerHeight / 2) + (nextEl.offsetHeight / 2),
+                  behavior: 'smooth'
+                });
+              }
+            } else {
+              stopVoice();
+            }
+          }
         });
-      } else if (panelIndex === 2) {
-        // Map Panel - Title and Instructions
-        const textToSpeak = currentLang === 'en'
+      }
+      
+    } else if (panelIndex === 2) {
+      // Map Panel
+      if (activeLocation) {
+        const loc = activeLocation;
+        const pointsList = lang === 'ta' ? loc.points_ta : loc.points;
+        const nameText = lang === 'ta' ? loc.name_ta : loc.name;
+        const text = `${nameText}. ${pointsList.join('. ')}`;
+        await playSingleTTS(panelIndex, text, `map_loc_${loc.id}_${lang}.wav`);
+      } else {
+        const text = lang === 'en'
           ? "Map Trace of the Sepoy Mutiny 1857. Tap the red pulsing dots on the map to explore key historical events."
           : "1857 சிப்பாய் கலகத்தின் வரைபடப் பாதை. வரைபடத்தில் உள்ள சிவப்பு நிற துடிக்கும் புள்ளிகளைத் தட்டி முக்கிய வரலாற்று நிகழ்வுகளை ஆராயுங்கள்.";
-        currentPlaybackQueue.push({
-          text: textToSpeak,
-          fileName: `map_${currentLang}.wav`,
-          element: null
-        });
-      } else if (panelIndex === 3) {
-        // Rifle Panel - Title and Specs details
-        const rifle = window.uprisingData.features.rifle;
-        let textToSpeak = "";
-        if (currentLang === 'en') {
-          textToSpeak = `${rifle.title} Calibre: ${rifle.details.Calibre}. Loading Mechanism: ${rifle.details.LoadingMechanism}. Lock Type: ${rifle.details.LockType}. Origin: ${rifle.details.Origin}. Ammunition: ${rifle.details.Ammunition}`;
-        } else {
-          textToSpeak = `${rifle.title_ta} கலிபர்: ${rifle.details_ta["கலிபர்"]}. ஏற்றும் முறை: ${rifle.details_ta["ஏற்றும் முறை"]}. விசை வகை: ${rifle.details_ta["விசை வகை"]}. தயாரிப்பு: ${rifle.details_ta["தயாரிப்பு"]}. வெடிமருந்து: ${rifle.details_ta["வெடிமருந்து"]}`;
-        }
-        currentPlaybackQueue.push({
-          text: textToSpeak,
-          fileName: `rifle_${currentLang}.wav`,
-          element: null
-        });
+        await playSingleTTS(panelIndex, text, `map_${lang}.wav`);
       }
       
-      if (currentPlaybackQueue.length === 0) {
-        voiceText.textContent = translations[currentLang].voicePlay;
-        btnVoice.style.pointerEvents = 'auto';
-        btnVoice.style.opacity = '1';
-        return;
+    } else if (panelIndex === 3) {
+      // Rifle Panel
+      const rifle = window.uprisingData.features.rifle;
+      let text = "";
+      if (lang === 'en') {
+        text = `${rifle.title} Calibre: ${rifle.details.Calibre}. Loading Mechanism: ${rifle.details.LoadingMechanism}. Lock Type: ${rifle.details.LockType}. Origin: ${rifle.details.Origin}. Ammunition: ${rifle.details.Ammunition}`;
+      } else {
+        text = `${rifle.title_ta} கலிபர்: ${rifle.details_ta["கலிபர்"]}. ஏற்றும் முறை: ${rifle.details_ta["ஏற்றும் முறை"]}. விசை வகை: ${rifle.details_ta["விசை வகை"]}. தயாரிப்பு: ${rifle.details_ta["தயாரிப்பு"]}. வெடிமருந்து: ${rifle.details_ta["வெடிமருந்து"]}`;
       }
-      
-      currentPlaybackIndex = 0;
-      playNextInQueue();
+      await playSingleTTS(panelIndex, text, `rifle_${lang}.wav`);
     }
-  });
+  }
+
+  // Audio Voice Button Toggle Action
+  function handleVoiceToggle() {
+    if (isVoicePlaying) {
+      stopVoice();
+    } else {
+      startVoice();
+    }
+  }
 
   // Weapon details image slideshow
   const weaponSlideshow = document.getElementById('weapon-slideshow');
@@ -539,7 +722,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clear and rebuild to show the correct language diagram
     weaponSlideshow.innerHTML = '';
     
-    const detailImgSrc = currentLang === 'ta' ? 'assets/Image/weapon/Detail_Tamil.png' : 'assets/Image/weapon/Detail.png';
+    const lang = panelLanguages[3];
+    const detailImgSrc = lang === 'ta' ? 'assets/Image/weapon/Detail_Tamil.png' : 'assets/Image/weapon/Detail.png';
     const weaponImages = [
       detailImgSrc,
       'assets/Image/weapon/sepoy_image.png'
@@ -602,6 +786,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }, { passive: false });
 
   window.addEventListener('scroll', () => {
+    if (isTranslating) return;
     if (isScrollLocked) {
       window.scrollTo(0, lockedScrollY);
       return;
@@ -658,17 +843,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Check if we need to sync voice playback to the centered timeline card
-    if (isVoicePlaying && currentPanelIndex === 1) {
+    // Check if we need to sync voice playback
+    if (isVoicePlaying) {
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
-        const centeredIdx = getCenteredTimelineCardIndex();
-        if (centeredIdx !== currentPlaybackIndex && centeredIdx < currentPlaybackQueue.length) {
-          audioNarration.pause();
-          currentPlaybackIndex = centeredIdx;
-          playNextInQueue();
-        }
-      }, 250);
+        playActiveContextVoice();
+      }, 300);
     }
   });
 
@@ -683,17 +863,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Auto Scroll on Inactivity ---
   let isAutoScrolling = false;
+  let isAutoScrollingUp = false;
   let autoScrollInterval = null;
+  let autoScrollUpInterval = null;
   let autoScrollTimer = null;
-  const INACTIVITY_DELAY = 180000; // 3 minutes
+  let scrollUpPauseTimer = null;
+  const INACTIVITY_DELAY = 60000; // 1 minute
+
+  function resetModelViewer() {
+    // Reset 3D Model orientation and camera zoom
+    const mv = document.querySelector('model-viewer');
+    if (mv) {
+      mv.cameraOrbit = 'unset';
+      mv.cameraTarget = 'unset';
+      mv.fieldOfView = 'unset';
+      mv.jumpCameraToGoal();
+    }
+    // Close map event info popup
+    const mapInfo = document.getElementById('map-info');
+    if (mapInfo) {
+      mapInfo.classList.add('hidden');
+    }
+    activeLocation = null;
+  }
 
   function startAutoScroll() {
-    if (isAutoScrolling) return;
+    if (isAutoScrolling || isVoicePlaying) return;
     
-    // If we are already at the bottom, reset to top and start timer again
+    // If we are already at the bottom, start scrolling back up
     if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 10) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      resetInactivity();
+      startAutoScrollUp();
       return;
     }
 
@@ -708,12 +907,31 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (isAtBottom) {
         stopAutoScroll();
-        setTimeout(() => {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+        scrollUpPauseTimer = setTimeout(() => {
+          startAutoScrollUp();
         }, 1500);
-        resetInactivity();
       }
     }, 25); // Scrolls ~40px per second, smooth and readable
+  }
+
+  function startAutoScrollUp() {
+    if (isAutoScrollingUp) return;
+    isAutoScrollingUp = true;
+    document.documentElement.classList.add('no-snap');
+
+    autoScrollUpInterval = setInterval(() => {
+      window.scrollBy(0, -3); // 3X the downward speed
+      
+      const currentY = window.scrollY;
+      if (currentY <= 0) {
+        stopAutoScrollUp();
+        resetModelViewer(); // close any open popups
+        // Loop: immediately start scrolling down again
+        setTimeout(() => {
+          if (!isVoicePlaying) startAutoScroll();
+        }, 800); // brief pause at top before looping down
+      }
+    }, 25);
   }
 
   function stopAutoScroll() {
@@ -726,8 +944,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function stopAutoScrollUp() {
+    if (!isAutoScrollingUp) return;
+    isAutoScrollingUp = false;
+    document.documentElement.classList.remove('no-snap');
+    if (autoScrollUpInterval) {
+      clearInterval(autoScrollUpInterval);
+      autoScrollUpInterval = null;
+    }
+  }
+
   function resetInactivity() {
     stopAutoScroll();
+    stopAutoScrollUp();
+    clearTimeout(scrollUpPauseTimer);
     clearTimeout(autoScrollTimer);
     autoScrollTimer = setTimeout(startAutoScroll, INACTIVITY_DELAY);
   }
@@ -739,13 +969,28 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('keydown', resetInactivity, { passive: true });
   
   window.addEventListener('scroll', () => {
-    if (!isAutoScrolling) {
+    if (!isAutoScrolling && !isAutoScrollingUp) {
       resetInactivity();
     }
   });
 
   // Start the initial inactivity timer on load
   autoScrollTimer = setTimeout(startAutoScroll, INACTIVITY_DELAY);
+
+  // Set up event delegation for localized language toggle and voice controls
+  document.addEventListener('click', (e) => {
+    const btnLangClicked = e.target.closest('.btn-lang');
+    const btnVoiceClicked = e.target.closest('.btn-voice');
+    
+    if (btnLangClicked) {
+      const panel = btnLangClicked.closest('.panel');
+      const panels = Array.from(document.querySelectorAll('.panel'));
+      const panelIndex = panels.indexOf(panel);
+      handleLangChange(panelIndex);
+    } else if (btnVoiceClicked) {
+      handleVoiceToggle();
+    }
+  });
 
   // Initial Content Population
   renderContent();

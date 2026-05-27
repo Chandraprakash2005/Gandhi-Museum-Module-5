@@ -8,6 +8,17 @@ html:not(.no-snap) {
   scroll-snap-type: y mandatory;
 }
 
+/* Hide scrollbar permanently to prevent shifting glitches */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+html, body {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
 body {
   font-family: 'Outfit', sans-serif;
   background-color: #f7f3e8; /* Sandstone base */
@@ -74,19 +85,24 @@ body {
 
 /* Floating Buttons */
 .btn-back {
-  position: fixed;
-  top: 1.5rem;
+  position: absolute;
+  top: 1rem;
   left: 1.5rem;
   z-index: 1000;
 }
 
 .audio-controls {
-  position: fixed;
-  top: 1.5rem;
+  position: absolute;
+  top: 1rem;
   right: 1.5rem;
   z-index: 1000;
   display: flex;
   gap: 1rem;
+}
+
+/* Move hero panel buttons closer to the very top */
+.panel-hero .audio-controls {
+  top: -5rem;
 }
 
 .btn-back, .btn-audio {
@@ -242,7 +258,7 @@ main {
   opacity: 0;
   transform-origin: right center;
   transform: rotateY(-90deg) scale(0.8) translateZ(-100px);
-  transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: opacity 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .timeline-event:nth-child(even) .timeline-content {
@@ -318,12 +334,25 @@ main {
   opacity: 0.6;
 }
 
+/* Make Map a separate section that never overflows 100vh */
+.panel-map {
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+.panel-map .panel-content {
+  height: 100%;
+}
+
 #map-section {
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
   max-width: 100%;
   padding: 1.5rem 2rem;
   box-sizing: border-box;
@@ -344,6 +373,9 @@ main {
   margin: 0 auto;
   flex: 1;
   gap: 2rem;
+  height: calc(100vh - 160px) !important;
+  max-height: calc(100vh - 160px) !important;
+  min-height: 0;
 }
 
 .map-dummy-left {
@@ -358,14 +390,15 @@ main {
   justify-content: center;
   align-items: center;
   height: 100%;
-  max-height: 650px;
+  max-height: 100% !important;
+  min-height: 0;
   z-index: 5;
 }
 
 .map-container {
   position: relative;
   height: 100%;
-  max-height: 650px;
+  max-height: 100% !important;
   aspect-ratio: 1.15 / 1;
   border-radius: 1.5rem;
   overflow: hidden;
@@ -540,49 +573,88 @@ main {
 
 .map-info {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(1);
-  width: 90%;
-  max-width: 600px;
-  background: rgba(247, 243, 232, 0.95);
-  backdrop-filter: blur(12px);
-  padding: 2rem;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('assets/Image/Background/popup_bg.png');
+  background-size: 100% 100%;       /* stretch envelope to fill exactly */
+  background-position: center;
+  background-color: #f7f3e8;
+  backdrop-filter: blur(14px);
+  /* Envelope margins: top for flap, 5px left/right */
+  padding: 14% 5px 10%;
   border-radius: 1rem;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(184, 95, 64, 0.2);
   z-index: 1000;
   opacity: 1;
   pointer-events: auto;
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;      /* center everything horizontally */
+  justify-content: center;   /* center everything vertically */
+  text-align: center;
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform: scale(1);
+  transform-origin: center center;
+  scrollbar-width: none;
 }
+.map-info::-webkit-scrollbar { display: none; }
 
 .map-info.hidden {
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, -50%) scale(0.9);
+  transform: scale(0.95);
 }
 
+/* Image container — full width of the content area */
+.map-info .map-image-scroll {
+  width: 100%;
+  margin-bottom: 0.8rem;
+}
+
+/* Place name — centered at the top of the envelope */
 .map-info h3 {
   color: #b85f40;
+  margin-top: -30px;
   font-size: 1.5rem;
-  margin-bottom: 0.5rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+  text-align: center;
+  width: 100%;
+  padding-left: 10px;
 }
 
+/* Date — just below the name */
 .map-info .date {
   color: #8c4224;
   font-weight: 600;
-  margin-bottom: 1rem;
+  margin-bottom: 0.6rem;
+  text-align: left;
+  font-size: 0.9rem;
+  padding-left: 1px;
+  width: 100%;
 }
 
+/* Bullet points — start at left margin, wrap at right margin */
 .map-info ul {
-  padding-left: 1.5rem;
+  list-style: disc;
+  list-style-position: outside;
+  padding-left: 170px; 
+  padding-right: 170px;    /* 10px from left edge */
   color: #3e3222;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
+  text-align: left;
+  width: 100%;
+  line-height: 1.6;
 }
 
 .map-info li {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.95rem;
 }
 
 .btn-close {
@@ -610,26 +682,30 @@ main {
 /* Map Popup Image Slideshow */
 .map-slideshow {
   position: relative;
-  width: 100%;
-  height: 250px;
+  width: 35%;
+  aspect-ratio: 1 / 1;
   border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 20px;
-  background: rgba(0,0,0,0.05);
-  display: block;
+  overflow: visible;         /* allow arrows to sit outside the image */
+  margin: 0 auto 0.8rem;
+  background: transparent;
+  flex-shrink: 0;
+  border: 3px solid rgba(184, 95, 64, 0.6);
+  box-shadow: 0 4px 16px rgba(184, 95, 64, 0.2);
 }
 .map-slides {
   width: 100%;
   height: 100%;
   position: relative;
+  overflow: hidden;         /* clip images to the square frame */
+  border-radius: 7px;
 }
 .map-slides img {
   position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
-  object-fit: contain;
+  object-fit: fill;  /* stretch image to fill the entire square */
   opacity: 0;
   transition: opacity 0.5s ease;
-  background: rgba(255,255,255,0.8);
+  background: transparent;
 }
 .map-slides img.active {
   opacity: 1;
@@ -648,8 +724,19 @@ main {
   color: #8c4224;
   box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
-.slide-btn.prev { left: 10px; }
-.slide-btn.next { right: 10px; }
+/* prev arrow — left side of image, next arrow — right side */
+.slide-btn.prev {
+  top: 50%;
+  left: -42px;    /* outside the LEFT edge of the image */
+  right: auto;
+  transform: translateY(-50%);
+}
+.slide-btn.next {
+  top: 50%;
+  right: -42px;   /* outside the RIGHT edge of the image */
+  left: auto;
+  transform: translateY(-50%);
+}
 .slide-dots {
   position: absolute;
   bottom: 10px;
@@ -696,7 +783,7 @@ main {
 
 .rifle-top {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1.8fr;  /* wider image column */
   gap: 1.5rem;
   flex: 1.3;
   min-height: 0;
@@ -733,10 +820,10 @@ main {
 .rifle-images-wrapper img {
   position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
-  object-fit: cover;
+  object-fit: contain;   /* show full weapon — no cropping */
   opacity: 0;
   transition: opacity 1s ease-in-out;
-  background: rgba(255, 255, 255, 0.5);
+  background: transparent;
 }
 
 .rifle-images-wrapper img.active {

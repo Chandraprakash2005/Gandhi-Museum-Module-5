@@ -31,10 +31,10 @@ document.addEventListener('DOMContentLoaded', () => {
       voices: "மறுமலர்ச்சியின் குரல்கள்",
       voicesSubtitle: "இந்திய மறுமலர்ச்சியின் குரல்கள்",
       impact: "சமூகத்தில் தாக்கம்",
-      welcomeTitle: "ஒரு சீர்திருத்தவாதியைத் தேர்ந்தெடுக்கவும்",
-      welcomeDesc: "வாழ்க்கை மற்றும் பாரம்பரியத்தை அறிய உருவப்படத்தைக் கிளிக் செய்யவும்.",
+      welcomeTitle: "சீர்திருத்தவாதியைத் தேர்ந்தெடுக்கவும்",
+      welcomeDesc: "உருவப்படத்தைக் கிளிக் செய்யவும்.",
       back: "பின்செல்",
-      btnLangToggle: "ENGLISH", // Opposite lang text for toggle
+      btnLangToggle: "ENG", // Opposite lang text for toggle
       voicePlay: "குரல்",
       voiceStop: "நிறுத்து"
     }
@@ -42,6 +42,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateUILanguage() {
     const t = translations[currentLang];
+    
+    // Toggle body class for language-specific styling
+    if (currentLang === 'ta') {
+      document.body.classList.add('lang-ta');
+      document.body.classList.remove('lang-en');
+    } else {
+      document.body.classList.add('lang-en');
+      document.body.classList.remove('lang-ta');
+    }
     
     // Update main page title
     const mainTitle = document.getElementById('main-page-title');
@@ -111,8 +120,19 @@ document.addEventListener('DOMContentLoaded', () => {
       btnVoice.style.pointerEvents = "none";
       
       try {
-        const textToSpeak = activeReformer[currentLang].desc;
-        const audioFileName = `${activeReformer.id}_desc_${currentLang}.wav`;
+        const content = activeReformer[currentLang];
+        let textToSpeak = `${content.name}. ${activeReformer.years}. ${content.title}. ${content.desc}. ${content.quote}.`;
+        
+        if (content.impactDetails && content.impactDetails.length > 0) {
+          content.impactDetails.forEach(detail => {
+            textToSpeak += ` ${detail.heading}.`;
+            detail.points.forEach(point => {
+              textToSpeak += ` ${point}`;
+            });
+          });
+        }
+        
+        const audioFileName = `${activeReformer.id}_full_${currentLang}.wav`;
         const outputPath = path.join(__dirname, '..', 'assets', 'cards', 'card2', audioFileName);
         
         // Request generation with high priority (resolves instantly if already exists)
@@ -265,38 +285,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const content = reformer[currentLang];
         const t = translations[currentLang];
 
+        const isTa = currentLang === 'ta';
         let cursorY = 120;
         const W = SIZE - 80;
 
         ctx.fillStyle = 'rgba(140, 90, 43, 0.8)';
-        ctx.font = '600 24px Outfit, sans-serif';
+        ctx.font = isTa ? '600 20px Outfit, sans-serif' : '600 24px Outfit, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(t.voicesSubtitle, SIZE / 2, cursorY);
-        cursorY += 70;
+        cursorY += isTa ? 60 : 70;
 
         ctx.fillStyle = '#8c5a2b';
-        ctx.font = 'bold 74px Outfit, sans-serif';
+        ctx.font = isTa ? 'bold 48px Outfit, sans-serif' : 'bold 74px Outfit, sans-serif';
         ctx.fillText(content.name, SIZE / 2, cursorY);
-        cursorY += 50;
+        cursorY += isTa ? 45 : 50;
 
         ctx.fillStyle = 'rgba(92, 74, 61, 0.8)';
-        ctx.font = '600 28px Outfit, sans-serif';
+        ctx.font = isTa ? '600 22px Outfit, sans-serif' : '600 28px Outfit, sans-serif';
         ctx.fillText(`${reformer.years}  •  ${content.title}`, SIZE / 2, cursorY);
-        cursorY += 100;
+        cursorY += isTa ? 85 : 100;
 
         ctx.fillStyle = '#8c5a2b';
-        ctx.font = 'italic 34px Outfit, sans-serif';
         ctx.fillStyle = 'rgba(140, 90, 43, 0.2)';
-        ctx.font = 'bold 120px serif';
-        ctx.fillText('"', 120, cursorY + 30);
+        ctx.font = isTa ? 'bold 90px serif' : 'bold 120px serif';
+        ctx.fillText('"', 120, cursorY + (isTa ? 20 : 30));
         ctx.fillStyle = '#8c5a2b';
-        ctx.font = 'italic 34px Outfit, sans-serif';
-        cursorY = wrapText(content.quote, SIZE / 2, cursorY, W - 160, 44, 4);
-        cursorY += 80;
+        ctx.font = isTa ? 'italic 24px Outfit, sans-serif' : 'italic 34px Outfit, sans-serif';
+        cursorY = wrapText(content.quote, SIZE / 2, cursorY, W - 160, isTa ? 34 : 44, 4);
+        cursorY += isTa ? 60 : 80;
 
         ctx.fillStyle = '#5c4a3d';
-        ctx.font = '28px Outfit, sans-serif';
-        wrapText(content.desc, SIZE / 2, cursorY, W - 80, 40, 5);
+        ctx.font = isTa ? '20px Outfit, sans-serif' : '28px Outfit, sans-serif';
+        wrapText(content.desc, SIZE / 2, cursorY, W - 80, isTa ? 30 : 40, 5);
 
         resolve(canvas.toDataURL('image/png'));
       };
@@ -338,8 +358,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="sc-title">${content.name}</div>
             <div class="sc-years">${reformer.years} &nbsp;•&nbsp; ${content.title}</div>
           </div>
-          <div class="sc-quote">${content.quote}</div>
           <div class="sc-desc">${content.desc}</div>
+          <div class="sc-quote">${content.quote}</div>
         </div>
         
         <div class="sc-card-box sc-bottom-card">
@@ -398,26 +418,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     welcomePlaceholder.style.display = 'none';
     gridContainer.classList.remove('hidden');
+    document.getElementById('content-center').classList.add('card-active');
     
     const sc = document.getElementById('scrollable-content');
     sc.classList.remove('visible');
 
     const squareImgData = await loadSquareImage(reformer);
-    const posterDataUrl = await renderPosterCanvas(reformer, squareImgData);
+    const posterImgData = await renderPosterCanvas(reformer, squareImgData);
 
     cells.forEach(({ front }) => {
       front.style.backgroundImage = `url('${squareImgData}')`;
     });
 
-    cells.forEach(({ back }) => {
-      back.style.backgroundImage = `url('${posterDataUrl}')`;
+    cells.forEach(({ back, col, row }) => {
+      const bpX = col === 0 ? '0%' : `${(col / (COLS - 1)) * 100}%`;
+      const bpY = row === 0 ? '0%' : `${(row / (ROWS - 1)) * 100}%`;
+      back.style.backgroundImage = `url('${posterImgData}')`;
+      back.style.backgroundSize = '1000% 1000%';
+      back.style.backgroundPosition = `${bpX} ${bpY}`;
     });
 
     const randomDir = ENTRANCE_CLASSES[Math.floor(Math.random() * ENTRANCE_CLASSES.length)];
     void gridContainer.offsetWidth;
     gridContainer.classList.add(randomDir);
 
-    await delay(700);
+    await delay(70);
 
     for (let n = 0; n < 9; n++) {
       const t = setTimeout(() => hLines[n].classList.add('drawn'), n * 60);
@@ -428,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
       activeTimers.push(t);
     }
 
-    await delay(9 * 60 + 600 + 200);
+    await delay(9 * 6 + 60 + 20);
 
     gridLinesOverlay.classList.add('complete');
     await delay(400);
@@ -441,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let maxFlipDelay = 0;
     cells.forEach(({ cell, row, col }) => {
-      const flipDelay = (row + col) * 50 + 100;
+      const flipDelay = (row + col) * 80 + 100;
       if (flipDelay > maxFlipDelay) maxFlipDelay = flipDelay;
       const t = setTimeout(() => cell.classList.add('flipped'), flipDelay);
       activeTimers.push(t);
