@@ -683,13 +683,13 @@ main {
   gap: 1.5rem;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
-  padding: 2.2rem;
-  border-radius: 1.5rem;
+  padding: 2.5rem;
+  border-radius: 1.8rem;
   border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow: 0 20px 50px rgba(62, 50, 34, 0.15);
   height: calc(100vh - 120px);
-  max-height: 640px;
-  max-width: 1400px;
+  max-height: 700px;
+  max-width: 1550px;
   margin: 0 auto;
   overflow: hidden;
 }
@@ -745,9 +745,9 @@ main {
 
 .rifle-details {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: 1fr 1.2fr 1fr 1.2fr 1.8fr;
   gap: 1rem;
-  flex: 0.7;
+  flex: 0.8;
   min-height: 0;
 }
 
