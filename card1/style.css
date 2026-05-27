@@ -768,11 +768,11 @@ main {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(239, 217, 180, 0.95); /* light sandstone color */
   backdrop-filter: blur(12px);
   padding: 2.5rem;
   border-radius: 1.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(184, 95, 64, 0.2);
   box-shadow: 0 20px 50px rgba(62, 50, 34, 0.15);
   height: calc(100vh - 120px);
   max-height: 700px;

@@ -212,10 +212,10 @@ body {
 .grid-container.hidden { display: none; }
 
 /* Entrance animations from 4 directions - Fast entry, extremely slow settling */
-.grid-container.enter-from-left   { animation: slideFromLeft   0.8s cubic-bezier(0.1, 1, 0.2, 1) forwards; }
-.grid-container.enter-from-right  { animation: slideFromRight  0.8s cubic-bezier(0.1, 1, 0.2, 1) forwards; }
-.grid-container.enter-from-top    { animation: slideFromTop    0.8s cubic-bezier(0.1, 1, 0.2, 1) forwards; }
-.grid-container.enter-from-bottom { animation: slideFromBottom 0.8s cubic-bezier(0.1, 1, 0.2, 1) forwards; }
+.grid-container.enter-from-left   { animation: slideFromLeft   1.2s cubic-bezier(0, 1, 0.2, 1) forwards; }
+.grid-container.enter-from-right  { animation: slideFromRight  1.2s cubic-bezier(0, 1, 0.2, 1) forwards; }
+.grid-container.enter-from-top    { animation: slideFromTop    1.2s cubic-bezier(0, 1, 0.2, 1) forwards; }
+.grid-container.enter-from-bottom { animation: slideFromBottom 1.2s cubic-bezier(0, 1, 0.2, 1) forwards; }
 
 @keyframes slideFromLeft {
   0%   { opacity: 0; transform: translateX(-120%); }

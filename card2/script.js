@@ -474,6 +474,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const posterImgData = await renderPosterCanvas(reformer, squareImgData);
     if (execId !== currentExecId) return;
 
+    // Allow the portrait to fully arrive and pause so the user can see it before the flip begins
+    await delay(500);
+    if (execId !== currentExecId) return; // abort if interrupted
+
     cells.forEach(({ back, col, row }) => {
       const bpX = col === 0 ? '0%' : `${(col / (COLS - 1)) * 100}%`;
       const bpY = row === 0 ? '0%' : `${(row / (ROWS - 1)) * 100}%`;
