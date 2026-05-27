@@ -692,7 +692,7 @@ main {
   overflow: hidden;
   padding: 1rem;
   box-shadow: inset 0 0 30px rgba(184, 95, 64, 0.08);
-  flex: 1.2;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -706,7 +706,7 @@ main {
 
 .rifle-images-wrapper {
   position: relative;
-  flex: 0.8;
+  flex: 1;
   border-radius: 1.5rem;
   border: 1px solid rgba(184, 95, 64, 0.2);
   overflow: hidden;
