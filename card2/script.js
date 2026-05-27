@@ -460,10 +460,9 @@ document.addEventListener('DOMContentLoaded', () => {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     if (execId !== currentExecId) return;
 
-    // Unhide the grid and immediately start the slide animation from a random direction (excluding bottom)
+    // Unhide the grid and immediately start the slide animation from the top alone
     gridContainer.style.visibility = 'visible';
-    const randomDir = ENTRANCE_CLASSES[Math.floor(Math.random() * ENTRANCE_CLASSES.length)];
-    gridContainer.classList.add(randomDir);
+    gridContainer.classList.add('enter-from-top');
 
     // Give the browser 50ms to begin the slide animation smoothly
     await delay(50);
@@ -541,9 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const handSvg = `
     <div class="hand-instruction" id="hand-instruction">
       <div class="tap-ripple"></div>
-      <svg width="54" height="54" viewBox="0 0 24 24" fill="#5c4a3d" xmlns="http://www.w3.org/2000/svg">
-        <path d="M11 20H15.4C16.1 20 16.7 19.4 16.7 18.7L17 14.5C17.1 13.6 16.5 12.8 15.6 12.6L13 11.8V4.5C13 3.7 12.3 3 11.5 3S10 3.7 10 4.5V13.8L6.8 12.8C6.4 12.7 6 12.8 5.7 13.1L4.5 14.3L8.9 19.2C9.5 19.7 10.2 20 11 20Z" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
-      </svg>
+      <img src="assets/bg/cursor.png" alt="Tap here" style="width: 54px; height: 54px; object-fit: contain;">
     </div>
   `;
 
