@@ -1,0 +1,404 @@
+/* ═══════════════════════════════════════════════════════
+   Card 2 – 10×10 Image Grid Flip
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Reset ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: #fdfaf6;
+  color: #4a3b32;
+  height: 100vh;
+  overflow: hidden;
+}
+
+
+  font-weight: 600; font-size: 0.95rem; font-family: inherit;
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(10px);
+  padding: 8px 18px; border-radius: 30px;
+  border: 1px solid rgba(0,0,0,0.1);
+  transition: all 0.3s;
+  cursor: pointer;
+}
+.btn-back:hover, .btn-control:hover { background: rgba(255,255,255,0.9); transform: translateY(-2px); }
+
+/* ── Split Layout ────────────────────────────────────── */
+.split-layout {
+  display: flex;
+  height: 100vh; width: 100vw;
+}
+
+/* ── Sidebars ────────────────────────────────────────── */
+.sidebar-left, .sidebar-right {
+  width: 220px; flex-shrink: 0;
+  background-color: #f5eedf;
+  background-image: url('assets/bg/sandstone_bg.png');
+  background-blend-mode: multiply;
+  display: flex; flex-direction: column;
+  height: 100vh;
+  padding-top: 60px; /* Space for the floating back button */
+}
+.sidebar-left { border-right: 1px solid #e3d5c5; }
+.sidebar-right { border-left: 1px solid #e3d5c5; }
+.btn-back, .btn-control {
+  display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none; color: #5c4a3d;
+  font-weight: 600; font-size: 0.95rem; font-family: inherit;
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(10px);
+  padding: 8px 18px; border-radius: 30px;
+  border: 1px solid rgba(0,0,0,0.1);
+  transition: all 0.3s;
+  cursor: pointer;
+}
+.btn-back:hover, .btn-control:hover { background: rgba(255,255,255,0.9); transform: translateY(-2px); }
+
+/* Main title moved from sidebar to center */
+.main-page-title {
+  position: absolute;
+  top: 40px;
+  width: 100%;
+  text-align: center;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #8c5a2b;
+  z-index: 10;
+  text-shadow: 0 2px 4px rgba(255,255,255,0.8);
+  pointer-events: none;
+}
+
+.control-square {
+  width: 100%;
+  aspect-ratio: 1/1; /* Perfect square matching the portraits */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.portrait-list {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 12px; display: flex; flex-direction: column; gap: 12px;
+  justify-content: space-evenly; /* Distributes the 3 items evenly */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(140, 90, 43, 0.3) transparent;
+}
+.portrait-list::-webkit-scrollbar { width: 6px; }
+.portrait-list::-webkit-scrollbar-thumb { background: rgba(140, 90, 43, 0.3); border-radius: 10px; }
+
+.portrait-item {
+  width: 100%; padding-top: 100%; /* forces exact square */
+  border-radius: 12px; overflow: hidden;
+  position: relative; cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s, filter 0.3s;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  transform-origin: center center;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+.portrait-item:hover { transform: scale(1.04); box-shadow: 0 10px 20px rgba(0,0,0,0.12); }
+.portrait-item.active {
+  border-color: #8c5a2b;
+  box-shadow: 0 0 15px rgba(140, 90, 43, 0.4);
+}
+.portrait-item img {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%; 
+  object-fit: cover; /* cover ensures the square is filled nicely */
+  background-color: rgba(140, 90, 43, 0.1);
+  transition: transform 0.5s;
+}
+.portrait-item:hover img { transform: scale(1.05); }
+.name-overlay {
+  position: absolute; bottom: 0; left: 0; width: 100%;
+  background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+  color: #fff; padding: 24px 10px 10px;
+  font-weight: 600; font-size: 0.9rem; text-align: center;
+}
+
+/* ── Content Center ──────────────────────────────────── */
+.content-center {
+  flex: 1; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  background-color: #fdfaf6;
+  background-image: url('assets/bg/sandstone_bg.png'), radial-gradient(ellipse at center, #fdfaf6 0%, #f0e6d2 100%);
+  background-blend-mode: multiply;
+}
+
+/* ── Welcome ─────────────────────────────────────────── */
+.welcome-placeholder { text-align: center; user-select: none; }
+.welcome-placeholder h2 { font-size: 2.5rem; color: #8c5a2b; margin-bottom: 10px; }
+.welcome-placeholder p  { font-size: 1.1rem; color: rgba(92, 74, 61, 0.8); }
+
+/* ── Grid Container ──────────────────────────────────── */
+.grid-container {
+  position: relative;
+  --grid-size: min(calc(100vh - 40px), 950px);
+  width: var(--grid-size);
+  height: var(--grid-size);
+  opacity: 0;
+  transition: none;
+  border-radius: 24px;
+  overflow: hidden; /* Clips the inner 10x10 tiles for smooth corners */
+  box-shadow: 0 15px 40px rgba(140, 90, 43, 0.15); /* Elegant grounding shadow */
+}
+.grid-container.hidden { display: none; }
+
+/* Entrance animations from 4 directions */
+.grid-container.enter-from-left   { animation: slideFromLeft   0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.grid-container.enter-from-right  { animation: slideFromRight  0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.grid-container.enter-from-top    { animation: slideFromTop    0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.grid-container.enter-from-bottom { animation: slideFromBottom 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+@keyframes slideFromLeft {
+  0%   { opacity: 0; transform: translateX(-120%); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideFromRight {
+  0%   { opacity: 0; transform: translateX(120%); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideFromTop {
+  0%   { opacity: 0; transform: translateY(-120%); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideFromBottom {
+  0%   { opacity: 0; transform: translateY(120%); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 10×10 Flip Grid ─────────────────────────────────── */
+.flip-grid {
+  position: absolute; inset: 0;
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(10, 1fr);
+  gap: 0;
+  z-index: 1;
+}
+
+/* ── Flip Cell ───────────────────────────────────────── */
+.flip-cell {
+  perspective: 800px;
+  width: 100%; height: 100%;
+  cursor: pointer;
+}
+.flip-inner {
+  position: relative;
+  width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  /* Transition is set via JS after reset */
+  transition: transform 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.flip-cell.flipped .flip-inner {
+  transform: rotateY(180deg);
+}
+
+.flip-front, .flip-back {
+  position: absolute; inset: 0;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  overflow: hidden;
+}
+
+/* Front: shows a slice of the portrait image */
+.flip-front {
+  background-color: #f5eedf;
+  background-image: url('assets/bg/sandstone_bg.png');
+  background-blend-mode: multiply;
+  background-size: 1000% 1000%;
+  background-repeat: no-repeat;
+}
+
+/* Back: shows a slice of the rendered content poster */
+.flip-back {
+  transform: rotateY(180deg);
+  background-color: rgba(245, 238, 223, 0.85);
+  background-blend-mode: overlay;
+  background-size: 1000% 1000%;
+  background-repeat: no-repeat;
+}
+
+/* ── Grid Lines Overlay ──────────────────────────────── */
+.grid-lines-overlay {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Horizontal lines */
+.grid-line-h {
+  position: absolute;
+  left: 0; height: 1.5px;
+  width: 0;               /* starts collapsed */
+  background: linear-gradient(90deg, transparent, rgba(140, 90, 43, 0.7), transparent);
+  transition: width 0.6s ease-out;
+  z-index: 2;
+}
+.grid-line-h.drawn { width: 100%; }
+
+/* Vertical lines */
+.grid-line-v {
+  position: absolute;
+  top: 0; width: 1.5px;
+  height: 0;              /* starts collapsed */
+  background: linear-gradient(180deg, transparent, rgba(140, 90, 43, 0.7), transparent);
+  transition: height 0.6s ease-out;
+  z-index: 2;
+}
+.grid-line-v.drawn { height: 100%; }
+
+/* ── Grid lines glow pulse after drawn ───────────────── */
+.grid-lines-overlay.complete .grid-line-h,
+.grid-lines-overlay.complete .grid-line-v {
+  animation: lineGlow 1.2s ease-in-out;
+}
+@keyframes lineGlow {
+  0%   { box-shadow: 0 0 4px rgba(140, 90, 43, 0.4); }
+  50%  { box-shadow: 0 0 10px rgba(140, 90, 43, 0.7); }
+  100% { box-shadow: 0 0 0px rgba(140, 90, 43, 0); }
+}
+
+/* ── Content Overlay (No Scroll) ──────────────────────── */
+.scrollable-content {
+  position: absolute; inset: 0;
+  z-index: 10;
+  overflow: hidden; /* Lock scrolling */
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.8s ease;
+  padding: 0;
+  background-size: cover;
+  background-position: center;
+  background-blend-mode: overlay;
+  background-color: rgba(245, 238, 223, 0.85); /* Sandstone overlay */
+
+  border-radius: 24px;
+  color: #4a3b32;
+}
+.scrollable-content.visible {
+  opacity: 1; pointer-events: auto;
+}
+.scrollable-content::-webkit-scrollbar { width: 8px; }
+.scrollable-content::-webkit-scrollbar-thumb { background: rgba(140, 90, 43, 0.6); border-radius: 10px; }
+
+/* Inner Container driving the 50/50 split */
+.sc-inner {
+  padding: 20px;
+  height: 100%; box-sizing: border-box;
+  display: flex; flex-direction: column;
+  gap: 12px;
+}
+
+/* Distinct Card Backgrounds for top and bottom halves */
+.sc-card-box {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-radius: 20px;
+  padding: 20px 30px;
+  box-shadow: 0 10px 30px rgba(140, 90, 43, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  display: flex; flex-direction: column;
+  flex: 1; /* Splits the space 50/50 */
+  justify-content: center;
+}
+
+.sc-header {
+  text-align: center; margin-bottom: 20px;
+  padding-bottom: 15px;
+  position: relative;
+}
+.sc-header::after {
+  content: ''; position: absolute; bottom: 0; left: 15%; right: 15%;
+  height: 1px; background: #8c5a2b;
+  box-shadow: 0 3px 0 0 rgba(140, 90, 43, 0.3);
+}
+.sc-subtitle {
+  font-size: 0.95rem; font-weight: 700; color: #000000;
+  letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px;
+}
+.sc-title {
+  font-size: 3rem; font-weight: 800; color: #4a2e15;
+  line-height: 1; margin-bottom: 8px;
+  letter-spacing: -1px;
+}
+.sc-years {
+  font-size: 1.1rem; color: #7a4b21; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+
+.sc-quote {
+  font-size: 1.25rem; font-style: italic; color: #5c3a21;
+  text-align: center; margin: 0 0 15px 0;
+  padding: 0 40px;
+  position: relative;
+  line-height: 1.4;
+}
+.sc-quote::before, .sc-quote::after {
+  content: '”';
+  font-size: 4rem; color: rgba(140, 90, 43, 0.15);
+  font-family: serif; font-weight: bold;
+  position: absolute; line-height: 1;
+}
+.sc-quote::before { content: '“'; top: -10px; left: 0px; }
+.sc-quote::after { bottom: -20px; right: 10px; }
+
+.sc-desc {
+  font-size: 1.1rem; line-height: 1.6; text-align: justify;
+  margin: 0; color: #4a3b32;
+  text-indent: 40px;
+}
+
+/* Full Width Bottom Section */
+.sc-bottom-full {
+  width: 100%;
+}
+
+.sc-section-title {
+  font-size: 1.15rem; font-weight: 700; color: #8c5a2b;
+  text-align: center; margin-bottom: 20px; text-transform: uppercase;
+  letter-spacing: 1.5px;
+  display: flex; align-items: center; justify-content: center; gap: 15px;
+  width: 100%;
+}
+.sc-section-title::before, .sc-section-title::after {
+  content: ''; flex: 1; height: 1px; background: rgba(140, 90, 43, 0.4);
+}
+
+.sc-impact-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
+  width: 100%;
+}
+.sc-impact-grid > .sc-impact-col:only-child {
+  grid-column: span 2;
+  margin: 0 auto;
+  max-width: 80%;
+}
+.sc-impact-heading {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 1.15rem; font-weight: 700; color: #7a4b21;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(140, 90, 43, 0.2);
+  padding-bottom: 8px;
+}
+.sc-impact-heading svg {
+  width: 20px; height: 20px; fill: #8c5a2b;
+}
+.sc-reforms {
+  list-style: none; padding: 0; margin: 0; width: 100%;
+}
+.sc-reforms li {
+  position: relative; padding-left: 35px; margin-bottom: 22px; /* Increased space between points */
+  font-size: 1.1rem; line-height: 1.5; color: #4a3b32;
+}
+.sc-reforms li::before {
+  content: '✦';
+  position: absolute; left: 0; top: 0px;
+  font-size: 1.2rem; color: #8c5a2b;
+}

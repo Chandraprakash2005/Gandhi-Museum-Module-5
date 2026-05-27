@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Uprising of 1857</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="data.js"></script>
+  <!-- Import the component -->
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+</head>
+<body>
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading History...</p>
+  </div>
+
+  <a href="../index.html" class="btn-back">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    Back
+  </a>
+  
+  <div class="audio-controls">
+    <button class="btn-audio" id="btn-lang">
+      <span id="lang-text">ENGLISH</span>
+    </button>
+    
+    <button class="btn-audio" id="btn-voice">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+      <span id="voice-text">Voice</span>
+    </button>
+  </div>
+
+  <main>
+    <div class="panel panel-hero">
+      <div class="panel-bg"></div>
+      <div class="panel-content">
+        <header class="hero">
+          <h1 id="main-title"></h1>
+          <div id="intro-text" class="intro"></div>
+          <div id="quotes-container" class="quotes"></div>
+        </header>
+      </div>
+    </div>
+
+    <div class="panel panel-timeline">
+      <div class="panel-bg"></div>
+      <div class="panel-content">
+        <section id="timeline-section" class="section">
+          <h2 id="timeline-title" class="section-title"></h2>
+          <div class="timeline-container">
+            <div id="timeline-track" class="timeline-track"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="panel panel-map">
+      <div class="panel-bg"></div>
+      <div class="panel-content">
+        <section id="map-section" class="section">
+          <h2 id="map-title" class="section-title"></h2>
+          <div class="map-layout">
+            <div class="map-instruction">
+              <div class="inst-marker"></div>
+              <p>Tap the red pulsing dots on the map to explore key historical events.</p>
+            </div>
+            <div class="map-wrapper-center">
+              <div class="map-container">
+                <img src="assets/Image/Map/India_Map.png" alt="Map of India" class="map-image" id="map-image">
+                <div id="map-markers" class="map-markers"></div>
+                <div id="map-info" class="map-info hidden">
+                  <button id="close-map-info" class="btn-close close-top-right">Close</button>
+                  <h3 id="map-info-title"></h3>
+                  <p id="map-info-date" class="date"></p>
+                  <div id="map-info-image-container" class="map-image-scroll"></div>
+                  <ul id="map-info-points"></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="panel panel-rifle">
+      <div class="panel-bg"></div>
+      <div class="panel-content">
+        <section id="rifle-section" class="section">
+          <h2 id="rifle-title" class="section-title"></h2>
+          <div class="rifle-container">
+            <div class="rifle-top">
+              <div class="rifle-model-wrapper">
+                <model-viewer 
+                  src="assets/3d%20model/lee_enfield_rifle_game-ready.glb" 
+                  alt="Enfield Rifle 3D Model" 
+                  auto-rotate 
+                  camera-controls 
+                  style="width: 100%; height: 280px; border-radius: 10px; background-color: #e5e5e5; display: block;">
+                </model-viewer>
+              </div>
+              <div class="rifle-images-wrapper" id="weapon-slideshow">
+                <!-- Slideshow images will be added here via JS -->
+              </div>
+            </div>
+            <div class="rifle-details" id="rifle-details"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- Audio elements -->
+  <!-- Using placeholders for audio -->
+  <audio id="audio-soundscape" loop>
+    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="audio-narration">
+    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" type="audio/mpeg">
+  </audio>
+
+  <script src="script.js"></script>
+</body>
+</html>

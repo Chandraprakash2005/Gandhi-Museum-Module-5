@@ -1,0 +1,16 @@
+# Dependency directories
+node_modules/
+
+# Local configuration files
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated audio assets
+assets/cards/**/*.wav
+card1/**/*.wav
+card2/**/*.wav
+*.wav

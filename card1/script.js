@@ -1,0 +1,740 @@
+document.addEventListener('DOMContentLoaded', () => {
+  const data = window.uprisingData;
+  if (!data) return;
+
+  const btnLang = document.getElementById('btn-lang');
+  const langText = document.getElementById('lang-text');
+  const btnVoice = document.getElementById('btn-voice');
+  const voiceText = document.getElementById('voice-text');
+  const audioNarration = document.getElementById('audio-narration');
+  
+  const { ipcRenderer } = require('electron');
+  const path = require('path');
+
+  let currentLang = 'ta';
+  let isVoicePlaying = false;
+  let currentPlaybackQueue = [];
+  let currentPlaybackIndex = 0;
+  let activeLocation = null;
+  let scrollTimeout;
+
+  const translations = {
+    en: {
+      back: "Back",
+      voicePlay: "Voice",
+      voiceStop: "Stop",
+      mapInstruction: "Tap the red pulsing dots on the map to explore key historical events.",
+      close: "Close",
+      loading: "Loading..."
+    },
+    ta: {
+      back: "பின்செல்",
+      voicePlay: "குரல்",
+      voiceStop: "நிறுத்து",
+      mapInstruction: "வரைபடத்தில் உள்ள சிவப்பு நிற துடிக்கும் புள்ளிகளைத் தட்டி முக்கிய வரலாற்று நிகழ்வுகளை ஆராயுங்கள்.",
+      close: "மூடுக",
+      loading: "ஏற்றப்படுகிறது..."
+    }
+  };
+
+  // Map marker layout configurations (coordinates on the India map)
+  const positions = {
+    "Peshawar": { top: '12%', left: '26%', labelPos: 'left' },
+    "Lahore": { top: '16%', left: '29%', labelPos: 'left' },
+    "Jalandhar": { top: '17%', left: '31%', labelPos: 'right' },
+    "Ambala": { top: '20%', left: '33.5%', labelPos: 'right' },
+    "Saharanpur": { top: '23%', left: '35.5%', labelPos: 'right' },
+    "Meerut": { top: '25.5%', left: '36.5%', labelPos: 'right' },
+    "Delhi": { top: '27.5%', left: '35%', labelPos: 'left' },
+    "Aligarh": { top: '28.5%', left: '37.5%', labelPos: 'right' },
+    "Mathura": { top: '30%', left: '36%', labelPos: 'left' },
+    "Agra": { top: '31.5%', left: '37%', labelPos: 'right' },
+    "Gwalior": { top: '36%', left: '37.5%', labelPos: 'left' },
+    "Bareilly": { top: '26%', left: '41.5%', labelPos: 'right' },
+    "Lucknow": { top: '31%', left: '47.5%', labelPos: 'right' },
+    "Kanpur": { top: '34.5%', left: '45.5%', labelPos: 'left' },
+    "Jhansi": { top: '41%', left: '37.5%', labelPos: 'right' },
+    "Allahabad": { top: '38.5%', left: '48.5%', labelPos: 'left' },
+    "Benaras": { top: '40%', left: '50.5%', labelPos: 'right' },
+    "Azamgarh": { top: '36%', left: '51.5%', labelPos: 'right' },
+    "Arrah": { top: '39%', left: '55.5%', labelPos: 'right' },
+    "Jabalpur": { top: '46%', left: '43.5%', labelPos: 'right' },
+    "Mhow": { top: '47%', left: '31.5%', labelPos: 'right' },
+    "Surat": { top: '53%', left: '20.5%', labelPos: 'right' },
+    "Ahmedabad": { top: '47%', left: '19.5%', labelPos: 'left' },
+    "Bombay": { top: '61%', left: '22.5%', labelPos: 'right' },
+    "Aurangabad": { top: '58%', left: '28.5%', labelPos: 'right' },
+    "Madurai": { top: '87%', left: '36.5%', labelPos: 'right' },
+    "Cuttack": { top: '53%', left: '56.5%', labelPos: 'right' },
+    "Calcutta": { top: '49%', left: '61.5%', labelPos: 'left' },
+    "Dumdum": { top: '45%', left: '62.5%', labelPos: 'left' },
+    "Chittagong": { top: '50%', left: '71.5%', labelPos: 'right' },
+    "Barrackpore": { top: '47%', left: '62%', labelPos: 'right' }
+  };
+
+  // Setup Timeline Intersection Observer
+  const observerOptions = {
+    root: null,
+    rootMargin: '0px',
+    threshold: 0.2
+  };
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      } else {
+        entry.target.classList.remove('visible');
+      }
+    });
+  }, observerOptions);
+
+  // Render and update UI based on selected language
+  function renderContent() {
+    const t = translations[currentLang];
+    document.body.classList.toggle('lang-ta', currentLang === 'ta');
+    
+    // Update Back button text
+    const backBtn = document.querySelector('.btn-back');
+    if (backBtn && backBtn.childNodes.length > 2) {
+      backBtn.childNodes[2].textContent = " " + t.back;
+    }
+    
+    // Update Language control button text to show the opposite language
+    langText.textContent = currentLang === 'en' ? 'தமிழ்' : 'ENGLISH';
+    
+    // Update Voice control button text
+    if (voiceText) {
+      voiceText.textContent = isVoicePlaying ? t.voiceStop : t.voicePlay;
+    }
+
+    // Update Map instructions text
+    const mapInst = document.querySelector('.map-instruction p');
+    if (mapInst) {
+      mapInst.textContent = t.mapInstruction;
+    }
+    
+    // Update Map Info close button
+    const closeMapInfoBtn = document.getElementById('close-map-info');
+    if (closeMapInfoBtn) {
+      closeMapInfoBtn.textContent = t.close;
+    }
+
+    // 1. Render Hero Panel content
+    document.getElementById('main-title').textContent = currentLang === 'ta' ? data.title_ta : data.title;
+    
+    const introContainer = document.getElementById('intro-text');
+    introContainer.innerHTML = '';
+    const descSource = currentLang === 'ta' ? data.description_ta : data.description;
+    descSource.forEach(p => {
+      const pEl = document.createElement('p');
+      pEl.textContent = p;
+      introContainer.appendChild(pEl);
+    });
+
+    const quotesContainer = document.getElementById('quotes-container');
+    quotesContainer.innerHTML = '';
+    const quotesSource = currentLang === 'ta' ? data.quotes_ta : data.quotes;
+    quotesSource.forEach(q => {
+      const qEl = document.createElement('div');
+      qEl.className = 'quote-card';
+      qEl.innerHTML = `
+        <div class="quote-text">${q.text}</div>
+        <div class="quote-author">- ${q.author}</div>
+      `;
+      quotesContainer.appendChild(qEl);
+    });
+
+    // 2. Render Timeline Panel content
+    document.getElementById('timeline-title').textContent = currentLang === 'ta' ? data.features.timeline.title_ta : data.features.timeline.title;
+    const timelineTrack = document.getElementById('timeline-track');
+    timelineTrack.innerHTML = '';
+    
+    const eventsSource = currentLang === 'ta' ? data.features.timeline.events_ta : data.features.timeline.events;
+    eventsSource.forEach((ev) => {
+      const evEl = document.createElement('div');
+      evEl.className = 'timeline-event';
+      
+      const dot = document.createElement('div');
+      dot.className = 'timeline-dot';
+      evEl.appendChild(dot);
+      
+      const content = document.createElement('div');
+      content.className = 'timeline-content';
+      
+      let imageHtml = '';
+      if (ev.image) {
+        imageHtml = `<img src="${ev.image}" alt="${ev.title}" class="timeline-image">`;
+      }
+
+      content.innerHTML = `
+        ${imageHtml}
+        <div class="timeline-date">${ev.date}</div>
+        <h3 class="timeline-title">${ev.title}</h3>
+        <div class="timeline-desc">${ev.description}</div>
+      `;
+      evEl.appendChild(content);
+      timelineTrack.appendChild(evEl);
+    });
+
+    // Attach IntersectionObserver to the new timeline cards
+    document.querySelectorAll('.timeline-event').forEach(el => {
+      observer.observe(el);
+    });
+
+    // 3. Render Map Panel content
+    document.getElementById('map-title').textContent = currentLang === 'ta' ? data.features.map.title_ta : data.features.map.title;
+    const mapMarkersContainer = document.getElementById('map-markers');
+    mapMarkersContainer.innerHTML = '';
+    
+    data.features.map.locations.forEach(loc => {
+      if (positions[loc.name]) {
+        const marker = document.createElement('div');
+        marker.className = 'map-marker';
+        
+        const hasDetails = loc.points && loc.points.length > 0 && loc.points[0] !== "A principal center during the 1857 revolt.";
+        if (hasDetails) {
+          marker.classList.add('detailed');
+        }
+
+        marker.style.top = positions[loc.name].top;
+        marker.style.left = positions[loc.name].left;
+        
+        const label = document.createElement('span');
+        label.className = 'map-label';
+        label.textContent = currentLang === 'ta' ? loc.name_ta : loc.name;
+        if (positions[loc.name].labelPos === 'left') {
+          label.classList.add('label-left');
+        }
+        marker.appendChild(label);
+        
+        marker.addEventListener('click', () => showMapInfo(loc));
+        mapMarkersContainer.appendChild(marker);
+      }
+    });
+
+    // Refresh active location details popup if it is open
+    if (activeLocation) {
+      showMapInfo(activeLocation);
+    }
+
+    // 4. Render Rifle Panel content
+    document.getElementById('rifle-title').textContent = currentLang === 'ta' ? data.features.rifle.title_ta : data.features.rifle.title;
+    const rifleDetails = document.getElementById('rifle-details');
+    rifleDetails.innerHTML = '';
+    
+    const detailsSource = currentLang === 'ta' ? data.features.rifle.details_ta : data.features.rifle.details;
+    Object.entries(detailsSource).forEach(([key, value]) => {
+      const detailEl = document.createElement('div');
+      detailEl.className = 'detail-item';
+      
+      const label = currentLang === 'en' ? key.replace(/([A-Z])/g, ' $1').trim() : key;
+      
+      detailEl.innerHTML = `
+        <div class="detail-label">${label}</div>
+        <div class="detail-value">${value}</div>
+      `;
+      rifleDetails.appendChild(detailEl);
+    });
+  }
+
+  // Populate Location Details Modal
+  function showMapInfo(loc) {
+    activeLocation = loc;
+    
+    document.getElementById('map-info-title').textContent = currentLang === 'ta' ? loc.name_ta : loc.name;
+    document.getElementById('map-info-date').textContent = loc.date || '';
+    
+    const imageContainer = document.getElementById('map-info-image-container');
+    if (imageContainer) {
+      // Rebuild the slideshow layout only if we switched to a different location
+      const isNewLoc = imageContainer.dataset.locId !== String(loc.id);
+      if (isNewLoc) {
+        imageContainer.dataset.locId = loc.id;
+        imageContainer.innerHTML = `
+          <div class="map-slideshow">
+            <div class="map-slides"></div>
+            <button class="slide-btn prev">&lt;</button>
+            <button class="slide-btn next">&gt;</button>
+            <div class="slide-dots"></div>
+          </div>
+        `;
+        const slides = imageContainer.querySelector('.map-slides');
+        const dots = imageContainer.querySelector('.slide-dots');
+        
+        const possibleImages = [
+          `assets/Image/Map/Cards/${loc.name}.png`,
+          `assets/Image/Map/Cards/${loc.name}1.png`,
+          `assets/Image/Map/Cards/${loc.name}2.png`,
+          `assets/Image/Map/Cards/${loc.name}3.png`,
+          `assets/Image/Map/Cards/${loc.name}4.png`
+        ];
+
+        let slideInterval;
+        const checkAndSetupSlideshow = () => {
+           const allImgs = slides.querySelectorAll('img');
+           if (allImgs.length === 0) {
+             imageContainer.style.display = 'none';
+           } else {
+             imageContainer.style.display = 'block';
+             if (allImgs.length === 1) {
+               imageContainer.querySelector('.slide-btn.prev').style.display = 'none';
+               imageContainer.querySelector('.slide-btn.next').style.display = 'none';
+               dots.style.display = 'none';
+             }
+             allImgs[0].classList.add('active');
+             const allDots = dots.querySelectorAll('.dot');
+             if (allDots.length > 0) allDots[0].classList.add('active');
+             
+             if (allImgs.length > 1) {
+               let curIdx = 0;
+               const goTo = (idx) => {
+                 allImgs[curIdx].classList.remove('active');
+                 if (allDots[curIdx]) allDots[curIdx].classList.remove('active');
+                 curIdx = idx;
+                 allImgs[curIdx].classList.add('active');
+                 if (allDots[curIdx]) allDots[curIdx].classList.add('active');
+               };
+               const next = () => goTo((curIdx + 1) % allImgs.length);
+               const prev = () => goTo((curIdx - 1 + allImgs.length) % allImgs.length);
+               
+               imageContainer.querySelector('.slide-btn.prev').onclick = () => { prev(); resetInt(); };
+               imageContainer.querySelector('.slide-btn.next').onclick = () => { next(); resetInt(); };
+               allDots.forEach((dot, idx) => {
+                 dot.onclick = () => { goTo(idx); resetInt(); };
+               });
+
+               const resetInt = () => {
+                 clearInterval(slideInterval);
+                 slideInterval = setInterval(next, 3000);
+               };
+               resetInt();
+             }
+           }
+        };
+
+        let promises = possibleImages.map(src => {
+          return new Promise(resolve => {
+            const img = new Image();
+            img.onload = () => {
+              const el = document.createElement('img');
+              el.src = src;
+              slides.appendChild(el);
+              
+              const dot = document.createElement('span');
+              dot.className = 'dot';
+              dots.appendChild(dot);
+              resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = src;
+          });
+        });
+
+        Promise.all(promises).then(checkAndSetupSlideshow);
+      }
+    }
+    
+    // Populate translated bullet points
+    const ul = document.getElementById('map-info-points');
+    ul.innerHTML = '';
+    const pointsList = currentLang === 'ta' ? loc.points_ta : loc.points;
+    pointsList.forEach(pt => {
+      const li = document.createElement('li');
+      li.textContent = pt;
+      ul.appendChild(li);
+    });
+    
+    const mapInfo = document.getElementById('map-info');
+    mapInfo.classList.remove('hidden');
+  }
+
+  // Handle map modal closing
+  const btnCloseMapInfo = document.getElementById('close-map-info');
+  btnCloseMapInfo.addEventListener('click', () => {
+    const mapInfo = document.getElementById('map-info');
+    mapInfo.classList.add('hidden');
+    activeLocation = null;
+  });
+
+  // Language Change Control
+  btnLang.addEventListener('click', () => {
+    currentLang = currentLang === 'en' ? 'ta' : 'en';
+    
+    if (isVoicePlaying) {
+      audioNarration.pause();
+      isVoicePlaying = false;
+      currentPlaybackQueue = [];
+    }
+    
+    renderContent();
+  });
+
+  // Determine current active panel section based on viewport scroll positioning
+  function getCurrentPanelIndex() {
+    const panels = document.querySelectorAll('.panel');
+    let activeIndex = 0;
+    panels.forEach((p, index) => {
+      if (window.scrollY >= p.offsetTop - (window.innerHeight / 2)) {
+        activeIndex = index;
+      }
+    });
+    return activeIndex;
+  }
+
+  // Find index of the timeline card closest to the vertical center of the screen
+  function getCenteredTimelineCardIndex() {
+    const eventElements = document.querySelectorAll('.timeline-event');
+    let minDistance = Infinity;
+    let centeredIndex = 0;
+    const screenCenter = window.innerHeight / 2;
+    
+    eventElements.forEach((el, index) => {
+      const rect = el.getBoundingClientRect();
+      const cardCenter = rect.top + rect.height / 2;
+      const distance = Math.abs(cardCenter - screenCenter);
+      if (distance < minDistance) {
+        minDistance = distance;
+        centeredIndex = index;
+      }
+    });
+    
+    return centeredIndex;
+  }
+
+  // Audio queue runner
+  async function playNextInQueue() {
+    if (currentPlaybackIndex >= currentPlaybackQueue.length) {
+      isVoicePlaying = false;
+      voiceText.textContent = translations[currentLang].voicePlay;
+      return;
+    }
+    
+    const item = currentPlaybackQueue[currentPlaybackIndex];
+    
+    try {
+      const outputPath = path.join(__dirname, '..', 'assets', 'cards', 'card1', item.fileName);
+      await ipcRenderer.invoke('generate-tts', {
+        text: item.text,
+        lang: currentLang,
+        outputPath: outputPath,
+        priority: true
+      });
+      
+      // If a DOM element is targeted, scroll to center it on the screen
+      if (item.element) {
+        const topPos = item.element.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({
+          top: topPos - (window.innerHeight / 2) + (item.element.offsetHeight / 2),
+          behavior: 'smooth'
+        });
+      }
+      
+      audioNarration.src = `../assets/cards/card1/${item.fileName}?t=` + Date.now();
+      await audioNarration.play();
+      
+      isVoicePlaying = true;
+      voiceText.textContent = translations[currentLang].voiceStop;
+      
+      audioNarration.onended = () => {
+        currentPlaybackIndex++;
+        playNextInQueue();
+      };
+      
+    } catch (err) {
+      console.error("TTS Generation Error:", err);
+      voiceText.textContent = 'Error';
+      isVoicePlaying = false;
+    } finally {
+      btnVoice.style.pointerEvents = 'auto';
+      btnVoice.style.opacity = '1';
+    }
+  }
+
+  // Audio Voice Button Click
+  btnVoice.addEventListener('click', () => {
+    if (isVoicePlaying) {
+      audioNarration.pause();
+      isVoicePlaying = false;
+      voiceText.textContent = translations[currentLang].voicePlay;
+      currentPlaybackQueue = [];
+    } else {
+      voiceText.textContent = translations[currentLang].loading;
+      btnVoice.style.pointerEvents = 'none';
+      btnVoice.style.opacity = '0.7';
+      
+      const panelIndex = getCurrentPanelIndex();
+      currentPlaybackQueue = [];
+      
+      if (panelIndex === 0) {
+        // Hero Panel - Intro Text
+        const textToSpeak = currentLang === 'en' 
+          ? window.uprisingData.description.join(' ')
+          : window.uprisingData.description_ta.join(' ');
+        currentPlaybackQueue.push({
+          text: textToSpeak,
+          fileName: `intro_${currentLang}.wav`,
+          element: null
+        });
+      } else if (panelIndex === 1) {
+        // Timeline Panel - Events
+        const events = window.uprisingData.features.timeline.events;
+        const eventsTa = window.uprisingData.features.timeline.events_ta || events;
+        const eventElements = document.querySelectorAll('.timeline-event');
+        
+        events.forEach((ev, i) => {
+          currentPlaybackQueue.push({
+            text: currentLang === 'en' ? ev.description : eventsTa[i].description,
+            fileName: `timeline_${i}_${currentLang}.wav`,
+            element: eventElements[i]
+          });
+        });
+      } else if (panelIndex === 2) {
+        // Map Panel - Title and Instructions
+        const textToSpeak = currentLang === 'en'
+          ? "Map Trace of the Sepoy Mutiny 1857. Tap the red pulsing dots on the map to explore key historical events."
+          : "1857 சிப்பாய் கலகத்தின் வரைபடப் பாதை. வரைபடத்தில் உள்ள சிவப்பு நிற துடிக்கும் புள்ளிகளைத் தட்டி முக்கிய வரலாற்று நிகழ்வுகளை ஆராயுங்கள்.";
+        currentPlaybackQueue.push({
+          text: textToSpeak,
+          fileName: `map_${currentLang}.wav`,
+          element: null
+        });
+      } else if (panelIndex === 3) {
+        // Rifle Panel - Title and Specs details
+        const rifle = window.uprisingData.features.rifle;
+        let textToSpeak = "";
+        if (currentLang === 'en') {
+          textToSpeak = `${rifle.title} Calibre: ${rifle.details.Calibre}. Loading Mechanism: ${rifle.details.LoadingMechanism}. Lock Type: ${rifle.details.LockType}. Origin: ${rifle.details.Origin}. Ammunition: ${rifle.details.Ammunition}`;
+        } else {
+          textToSpeak = `${rifle.title_ta} கலிபர்: ${rifle.details_ta["கலிபர்"]}. ஏற்றும் முறை: ${rifle.details_ta["ஏற்றும் முறை"]}. விசை வகை: ${rifle.details_ta["விசை வகை"]}. தயாரிப்பு: ${rifle.details_ta["தயாரிப்பு"]}. வெடிமருந்து: ${rifle.details_ta["வெடிமருந்து"]}`;
+        }
+        currentPlaybackQueue.push({
+          text: textToSpeak,
+          fileName: `rifle_${currentLang}.wav`,
+          element: null
+        });
+      }
+      
+      if (currentPlaybackQueue.length === 0) {
+        voiceText.textContent = translations[currentLang].voicePlay;
+        btnVoice.style.pointerEvents = 'auto';
+        btnVoice.style.opacity = '1';
+        return;
+      }
+      
+      currentPlaybackIndex = 0;
+      playNextInQueue();
+    }
+  });
+
+  // Weapon details image slideshow
+  const weaponSlideshow = document.getElementById('weapon-slideshow');
+  if (weaponSlideshow) {
+    const weaponImages = [
+      'assets/Image/weapon/Detail.png',
+      'assets/Image/weapon/Detail_Tamil.png',
+      'assets/Image/weapon/sepoy_image.png'
+    ];
+    
+    weaponImages.forEach((src, idx) => {
+      const img = document.createElement('img');
+      img.src = src;
+      if (idx === 0) img.classList.add('active');
+      weaponSlideshow.appendChild(img);
+    });
+
+    let currentWeaponImgIdx = 0;
+    setInterval(() => {
+      const imgs = weaponSlideshow.querySelectorAll('img');
+      if (imgs.length > 0) {
+        imgs[currentWeaponImgIdx].classList.remove('active');
+        currentWeaponImgIdx = (currentWeaponImgIdx + 1) % imgs.length;
+        imgs[currentWeaponImgIdx].classList.add('active');
+      }
+    }, 3000);
+  }
+
+  // --- Stacking Cards Height Logic ---
+  const ro = new ResizeObserver(() => {
+    const panels = document.querySelectorAll('.panel');
+    panels.forEach(panel => {
+      const panelHeight = panel.offsetHeight;
+      const windowHeight = window.innerHeight;
+      
+      if (panelHeight > windowHeight) {
+        panel.style.top = `-${panelHeight - windowHeight}px`;
+      } else {
+        panel.style.top = '0px';
+      }
+    });
+  });
+  ro.observe(document.body);
+
+  // --- Scroll Snapping Arrest Lock Logic ---
+  let isScrollLocked = false;
+  let lockedScrollY = 0;
+  let panelLockState = [true, true, true, true]; // Lock transition out of panels 0, 1, 2, 3
+
+  // Helper to block manual wheel / touch scrolling while locked
+  function preventDefault(e) {
+    if (isScrollLocked) {
+      e.preventDefault();
+    }
+  }
+  window.addEventListener('wheel', preventDefault, { passive: false });
+  window.addEventListener('touchmove', preventDefault, { passive: false });
+  window.addEventListener('keydown', (e) => {
+    if (isScrollLocked && ['ArrowUp', 'ArrowDown', 'Space', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.code)) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  window.addEventListener('scroll', () => {
+    if (isScrollLocked) {
+      window.scrollTo(0, lockedScrollY);
+      return;
+    }
+
+    const currentScrollY = window.scrollY;
+    const panels = document.querySelectorAll('.panel');
+    
+    // Find current panel index
+    let currentPanelIndex = 0;
+    panels.forEach((panel, index) => {
+      if (currentScrollY >= panel.offsetTop - 50) {
+        currentPanelIndex = index;
+      }
+    });
+
+    // If we are at the end of the current panel (and it's not the last panel)
+    if (currentPanelIndex < panels.length - 1) {
+      const panel = panels[currentPanelIndex];
+      const panelEndScrollY = panel.offsetTop + Math.max(0, panel.offsetHeight - window.innerHeight);
+      
+      // If we scroll down beyond the end of the current panel and it's currently locked
+      if (currentScrollY > panelEndScrollY + 15 && panelLockState[currentPanelIndex]) {
+        isScrollLocked = true;
+        lockedScrollY = panelEndScrollY;
+        
+        window.scrollTo(0, panelEndScrollY);
+        
+        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+        document.documentElement.style.paddingRight = `${scrollbarWidth}px`;
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+        
+        setTimeout(() => {
+          isScrollLocked = false;
+          panelLockState[currentPanelIndex] = false; // Unlock so user can now transition
+          
+          document.documentElement.style.paddingRight = '';
+          document.documentElement.style.overflow = '';
+          document.body.style.overflow = '';
+        }, 3000); // 3 seconds pause
+        
+        return;
+      }
+    }
+
+    // Reset lock states of other panels if the user scrolls away from their boundary
+    panels.forEach((panel, index) => {
+      if (index < panels.length - 1) {
+        const panelEndScrollY = panel.offsetTop + Math.max(0, panel.offsetHeight - window.innerHeight);
+        if (currentScrollY < panelEndScrollY - 100) {
+          panelLockState[index] = true;
+        }
+      }
+    });
+
+    // Check if we need to sync voice playback to the centered timeline card
+    if (isVoicePlaying && currentPanelIndex === 1) {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        const centeredIdx = getCenteredTimelineCardIndex();
+        if (centeredIdx !== currentPlaybackIndex && centeredIdx < currentPlaybackQueue.length) {
+          audioNarration.pause();
+          currentPlaybackIndex = centeredIdx;
+          playNextInQueue();
+        }
+      }, 250);
+    }
+  });
+
+  // Hide loader spinner once content is initialized
+  const loading = document.getElementById('loading');
+  if (loading) {
+    loading.style.opacity = '0';
+    setTimeout(() => {
+      loading.style.display = 'none';
+    }, 500);
+  }
+
+  // --- Auto Scroll on Inactivity ---
+  let isAutoScrolling = false;
+  let autoScrollInterval = null;
+  let autoScrollTimer = null;
+  const INACTIVITY_DELAY = 180000; // 3 minutes
+
+  function startAutoScroll() {
+    if (isAutoScrolling) return;
+    
+    // If we are already at the bottom, reset to top and start timer again
+    if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 10) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      resetInactivity();
+      return;
+    }
+
+    isAutoScrolling = true;
+    document.documentElement.classList.add('no-snap');
+
+    autoScrollInterval = setInterval(() => {
+      window.scrollBy(0, 1);
+      
+      const currentY = window.scrollY;
+      const isAtBottom = (window.innerHeight + currentY) >= document.documentElement.scrollHeight - 5;
+      
+      if (isAtBottom) {
+        stopAutoScroll();
+        setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 1500);
+        resetInactivity();
+      }
+    }, 25); // Scrolls ~40px per second, smooth and readable
+  }
+
+  function stopAutoScroll() {
+    if (!isAutoScrolling) return;
+    isAutoScrolling = false;
+    document.documentElement.classList.remove('no-snap');
+    if (autoScrollInterval) {
+      clearInterval(autoScrollInterval);
+      autoScrollInterval = null;
+    }
+  }
+
+  function resetInactivity() {
+    stopAutoScroll();
+    clearTimeout(autoScrollTimer);
+    autoScrollTimer = setTimeout(startAutoScroll, INACTIVITY_DELAY);
+  }
+
+  // User manual interaction listeners to reset the inactivity timer
+  window.addEventListener('wheel', resetInactivity, { passive: true });
+  window.addEventListener('touchmove', resetInactivity, { passive: true });
+  window.addEventListener('mousedown', resetInactivity, { passive: true });
+  window.addEventListener('keydown', resetInactivity, { passive: true });
+  
+  window.addEventListener('scroll', () => {
+    if (!isAutoScrolling) {
+      resetInactivity();
+    }
+  });
+
+  // Start the initial inactivity timer on load
+  autoScrollTimer = setTimeout(startAutoScroll, INACTIVITY_DELAY);
+
+  // Initial Content Population
+  renderContent();
+});
