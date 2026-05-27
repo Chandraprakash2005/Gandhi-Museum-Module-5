@@ -236,6 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
       rifleDetails.appendChild(detailEl);
     });
+    initWeaponSlideshow();
   }
 
   // Populate Location Details Modal
@@ -529,29 +530,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Weapon details image slideshow
   const weaponSlideshow = document.getElementById('weapon-slideshow');
-  if (weaponSlideshow) {
+  let currentWeaponImgIdx = 0;
+  let slideshowInterval = null;
+
+  function initWeaponSlideshow() {
+    if (!weaponSlideshow) return;
+    
+    // Clear and rebuild to show the correct language diagram
+    weaponSlideshow.innerHTML = '';
+    
+    const detailImgSrc = currentLang === 'ta' ? 'assets/Image/weapon/Detail_Tamil.png' : 'assets/Image/weapon/Detail.png';
     const weaponImages = [
-      'assets/Image/weapon/Detail.png',
-      'assets/Image/weapon/Detail_Tamil.png',
+      detailImgSrc,
       'assets/Image/weapon/sepoy_image.png'
     ];
     
     weaponImages.forEach((src, idx) => {
       const img = document.createElement('img');
       img.src = src;
-      if (idx === 0) img.classList.add('active');
+      if (idx === currentWeaponImgIdx % weaponImages.length) {
+        img.classList.add('active');
+      }
       weaponSlideshow.appendChild(img);
     });
 
-    let currentWeaponImgIdx = 0;
-    setInterval(() => {
-      const imgs = weaponSlideshow.querySelectorAll('img');
-      if (imgs.length > 0) {
-        imgs[currentWeaponImgIdx].classList.remove('active');
-        currentWeaponImgIdx = (currentWeaponImgIdx + 1) % imgs.length;
-        imgs[currentWeaponImgIdx].classList.add('active');
-      }
-    }, 3000);
+    if (!slideshowInterval) {
+      slideshowInterval = setInterval(() => {
+        const imgs = weaponSlideshow.querySelectorAll('img');
+        if (imgs.length > 0) {
+          imgs[currentWeaponImgIdx].classList.remove('active');
+          currentWeaponImgIdx = (currentWeaponImgIdx + 1) % imgs.length;
+          imgs[currentWeaponImgIdx].classList.add('active');
+        }
+      }, 3000);
+    }
   }
 
   // --- Stacking Cards Height Logic ---
