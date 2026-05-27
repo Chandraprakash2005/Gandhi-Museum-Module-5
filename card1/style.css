@@ -318,6 +318,21 @@ main {
   opacity: 0.6;
 }
 
+#map-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  max-width: 100%;
+  padding: 1.5rem 2rem;
+  box-sizing: border-box;
+}
+
+#map-section .section-title {
+  margin: 0 auto 1.5rem auto;
+}
+
 /* Map Section Layout */
 .map-layout {
   display: flex;
@@ -327,7 +342,7 @@ main {
   max-width: 100%;
   padding: 0 3rem;
   margin: 0 auto;
-  min-height: calc(100vh - 120px);
+  flex: 1;
   gap: 2rem;
 }
 
@@ -342,13 +357,15 @@ main {
   display: flex;
   justify-content: center;
   align-items: center;
+  height: 100%;
+  max-height: 650px;
   z-index: 5;
 }
 
 .map-container {
   position: relative;
-  height: calc(100vh - 180px);
-  max-height: 680px;
+  height: 100%;
+  max-height: 650px;
   aspect-ratio: 1.15 / 1;
   border-radius: 1.5rem;
   overflow: hidden;
