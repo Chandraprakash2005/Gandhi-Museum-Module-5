@@ -460,10 +460,9 @@ document.addEventListener('DOMContentLoaded', () => {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     if (execId !== currentExecId) return;
 
-    // Now unhide the grid and start the slide animation with the new image perfectly loaded
+    // Unhide the grid and immediately start the slide animation from the left
     gridContainer.style.visibility = 'visible';
-    const randomDir = ENTRANCE_CLASSES[Math.floor(Math.random() * ENTRANCE_CLASSES.length)];
-    gridContainer.classList.add(randomDir);
+    gridContainer.classList.add('enter-from-left');
 
     // Give the browser 50ms to begin the slide animation smoothly
     await delay(50);
@@ -475,7 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (execId !== currentExecId) return;
 
     // Allow the portrait to fully arrive and pause so the user can see it before the flip begins
-    await delay(900);
+    await delay(2000);
     if (execId !== currentExecId) return; // abort if interrupted
 
     cells.forEach(({ back, col, row }) => {
