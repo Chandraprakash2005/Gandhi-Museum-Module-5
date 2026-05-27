@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeTimers = [];
   let isAnimating = false;
 
-  const ENTRANCE_CLASSES = ['enter-from-left', 'enter-from-right', 'enter-from-top'];
+  const ENTRANCE_CLASSES = ['enter-from-left', 'enter-from-right', 'enter-from-top', 'enter-from-bottom'];
 
   function clearTimers() {
     activeTimers.forEach(t => clearTimeout(t));
@@ -439,7 +439,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('content-center').classList.add('card-active');
     
     const sc = document.getElementById('scrollable-content');
+    sc.style.transition = 'none'; // instantly remove fade-out delay
     sc.classList.remove('visible');
+    
+    // Update the content immediately so the DOM is ready and NEVER shows the old data
+    buildScrollableContent(reformer);
+    
+    // Restore the transition for when it needs to fade back in later
+    void sc.offsetWidth; // force reflow
+    sc.style.transition = '';
 
     // Compute the square image dynamically (lightning fast JPEG)
     if (!reformer.squareImage) {
@@ -460,8 +468,10 @@ document.addEventListener('DOMContentLoaded', () => {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     if (execId !== currentExecId) return;
 
-    // Unhide the grid. Since we aren't adding an entrance class, it will instantly appear exactly where the old one was in the center.
+    // Now unhide the grid and start the slide animation with the new image perfectly loaded
     gridContainer.style.visibility = 'visible';
+    const randomDir = ENTRANCE_CLASSES[Math.floor(Math.random() * ENTRANCE_CLASSES.length)];
+    gridContainer.classList.add(randomDir);
 
     // Give the browser 50ms to begin the slide animation smoothly
     await delay(50);
@@ -524,7 +534,6 @@ document.addEventListener('DOMContentLoaded', () => {
       gridLinesOverlay.style.transition = 'opacity 0.5s ease';
       gridLinesOverlay.style.opacity = '0';
       
-      buildScrollableContent(reformer);
       document.getElementById('scrollable-content').classList.add('visible');
       
       isAnimating = false;
@@ -539,7 +548,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const handSvg = `
     <div class="hand-instruction" id="hand-instruction">
       <div class="tap-ripple"></div>
-      <img src="assets/bg/cursor.png" alt="Tap here" style="width: 54px; height: 54px; object-fit: contain;">
+      <svg width="54" height="54" viewBox="0 0 24 24" fill="#5c4a3d" xmlns="http://www.w3.org/2000/svg">
+        <path d="M11 20H15.4C16.1 20 16.7 19.4 16.7 18.7L17 14.5C17.1 13.6 16.5 12.8 15.6 12.6L13 11.8V4.5C13 3.7 12.3 3 11.5 3S10 3.7 10 4.5V13.8L6.8 12.8C6.4 12.7 6 12.8 5.7 13.1L4.5 14.3L8.9 19.2C9.5 19.7 10.2 20 11 20Z" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
     </div>
   `;
 
