@@ -475,7 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (execId !== currentExecId) return;
 
     // Allow the portrait to fully arrive and pause so the user can see it before the flip begins
-    await delay(500);
+    await delay(900);
     if (execId !== currentExecId) return; // abort if interrupted
 
     cells.forEach(({ back, col, row }) => {
