@@ -602,14 +602,11 @@ document.addEventListener('DOMContentLoaded', () => {
         btnVoice.childNodes[2].textContent = " " + translations[currentLang].voicePlay;
       }
       
-      // Close the center card
-      clearTimers();
-      isAnimating = false;
-      document.querySelectorAll('.portrait-item').forEach(el => el.classList.remove('active'));
-      gridContainer.classList.add('hidden');
-      document.getElementById('content-center').classList.remove('card-active');
-      welcomePlaceholder.style.display = 'block';
-      activeReformer = null;
+      // Revert back to the first portrait on inactivity
+      const firstPortrait = document.querySelector('.portrait-item');
+      if (firstPortrait && !firstPortrait.classList.contains('active')) {
+        firstPortrait.click();
+      }
 
       // Bring back the hand instruction
       const handInstruction = document.getElementById('hand-instruction');
@@ -625,4 +622,13 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Start the timer initially
   resetInactivityTimer();
+
+  // ══════════════════════════════════════════════════════
+  //  7. Show first card content by default
+  // ══════════════════════════════════════════════════════
+  // Automatically trigger the first portrait on load so it's not hidden
+  const firstPortrait = document.querySelector('.portrait-item');
+  if (firstPortrait) {
+    firstPortrait.click();
+  }
 });

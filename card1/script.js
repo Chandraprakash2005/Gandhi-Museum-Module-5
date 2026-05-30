@@ -80,8 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         entry.target.classList.add('visible');
-      } else {
-        entry.target.classList.remove('visible');
       }
     });
   }, observerOptions);
@@ -842,6 +840,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     });
+
+    // --- Highlight the centered timeline dot ---
+    if (currentPanelIndex === 1) { // Timeline panel
+      const centeredIdx = getCenteredTimelineCardIndex();
+      const eventElements = document.querySelectorAll('.timeline-event');
+      eventElements.forEach((el, idx) => {
+        if (idx === centeredIdx) {
+          el.classList.add('centered-event');
+        } else {
+          el.classList.remove('centered-event');
+        }
+      });
+    }
 
     // Check if we need to sync voice playback
     if (isVoicePlaying) {
