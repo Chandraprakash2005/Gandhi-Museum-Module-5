@@ -8,8 +8,8 @@ const card2Dir = path.join(rootDir, 'assets', 'cards', 'card2');
 const cardsDir = [card1Dir, card2Dir];
 
 const piperExe = path.join(rootDir, 'assets', 'Voice model', 'piper', 'piper.exe');
-const enModel = path.join(rootDir, 'assets', 'Voice model', 'models', 'en_US-lessac-medium.onnx');
-const taModel = path.join(rootDir, 'assets', 'Voice model', 'models', 'ta_IN-Valluvar-medium.onnx');
+const enModel = path.join(rootDir, 'assets', 'Voice model', 'models', 'en_IN-spicor-medium.onnx');
+const taModel = path.join(rootDir, 'assets', 'Voice model', 'models', 'ta_IN-rasa_female-medium.onnx');
 
 function deleteExistingWavs(dir) {
   if (!fs.existsSync(dir)) {

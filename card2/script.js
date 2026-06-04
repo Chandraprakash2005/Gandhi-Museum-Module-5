@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const langText = document.getElementById('lang-text');
   const btnVoice = document.getElementById('btn-voice');
   
-  let currentLang = 'ta'; // Tamil as primary language
+  let currentLang = localStorage.getItem('kiosk_global_lang') || 'ta';
   let activeReformer = null;
   let currentAudio = null;
   let isPlaying = false;
@@ -97,8 +97,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   btnLang.addEventListener('click', () => {
+    const wasPlaying = isPlaying;
     currentLang = currentLang === 'ta' ? 'en' : 'ta';
     updateUILanguage();
+    if (wasPlaying) {
+      btnVoice.click();
+    }
   });
 
   const { ipcRenderer } = require('electron');
@@ -620,15 +624,72 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener(evt, resetInactivityTimer);
   });
   
+  window.addEventListener('kiosk_auto_cancelled', () => {
+     if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+        isPlaying = false;
+        if (btnVoice) btnVoice.childNodes[2].textContent = " " + translations[currentLang].voicePlay;
+     }
+  });
+
   // Start the timer initially
   resetInactivityTimer();
 
   // ══════════════════════════════════════════════════════
   //  7. Show first card content by default
   // ══════════════════════════════════════════════════════
-  // Automatically trigger the first portrait on load so it's not hidden
-  const firstPortrait = document.querySelector('.portrait-item');
-  if (firstPortrait) {
-    firstPortrait.click();
+  const isGlobalAuto = localStorage.getItem('kiosk_global_auto') === 'true';
+  
+  if (isGlobalAuto) {
+      setTimeout(() => {
+          // Play 3 random portraits
+          const portraits = Array.from(document.querySelectorAll('.portrait-item'));
+          let pool = [...portraits];
+          let chosen = [];
+          for (let i = 0; i < 3 && pool.length > 0; i++) {
+              let r = Math.floor(Math.random() * pool.length);
+              chosen.push(pool.splice(r, 1)[0]);
+          }
+          
+          let playCount = 0;
+          function playNextRandom() {
+              if (localStorage.getItem('kiosk_global_auto') !== 'true') return; // Cancelled
+              if (playCount < chosen.length) {
+                  const target = chosen[playCount];
+                  target.click();
+                  setTimeout(() => {
+                      // Click voice button
+                      if (!isPlaying) btnVoice.click();
+                      // Wait for audio to be created
+                      const checkAudio = setInterval(() => {
+                          if (currentAudio) {
+                              clearInterval(checkAudio);
+                              const audioRef = currentAudio;
+                              const onEnded = () => {
+                                  audioRef.removeEventListener('ended', onEnded);
+                                  playCount++;
+                                  setTimeout(playNextRandom, 1500);
+                              };
+                              audioRef.addEventListener('ended', onEnded);
+                          } else if (localStorage.getItem('kiosk_global_auto') !== 'true') {
+                              clearInterval(checkAudio); // Cancel if auto mode is turned off
+                          }
+                      }, 100);
+                  }, 1500); // Wait for card flip transition
+              } else {
+                  // Done 3, go back to main menu
+                  window.location.href = '../index.html';
+              }
+          }
+          
+          playNextRandom();
+      }, 1000);
+  } else {
+      // Automatically trigger the first portrait on load so it's not hidden
+      const firstPortrait = document.querySelector('.portrait-item');
+      if (firstPortrait) {
+        firstPortrait.click();
+      }
   }
 });

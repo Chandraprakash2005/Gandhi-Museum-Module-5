@@ -7,7 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const { ipcRenderer } = require('electron');
   const path = require('path');
 
-  let panelLanguages = ['ta', 'ta', 'ta', 'ta'];
+  const defaultLang = localStorage.getItem('kiosk_global_lang') || 'ta';
+  let panelLanguages = [defaultLang, defaultLang, defaultLang, defaultLang];
   let isVoicePlaying = false;
   let currentPlaybackQueue = [];
   let currentPlaybackIndex = 0;
@@ -96,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update this panel's specific language toggle button text
     const langTextEl = panel.querySelector('.lang-text');
     if (langTextEl) {
-      langTextEl.textContent = lang === 'en' ? 'தமிழ்' : 'ENGLISH';
+      langTextEl.textContent = lang === 'en' ? 'தமிழ்' : 'ENG';
     }
     
     // Update this panel's specific voice button text
@@ -424,7 +425,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     panelLanguages[panelIndex] = panelLanguages[panelIndex] === 'en' ? 'ta' : 'en';
     
-    if (isVoicePlaying && getCurrentPanelIndex() === panelIndex) {
+    const wasPlaying = isVoicePlaying && getCurrentPanelIndex() === panelIndex;
+    if (wasPlaying) {
       stopVoice();
     }
     
@@ -448,10 +450,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.documentElement.classList.remove('no-snap');
         isTranslating = false;
         ipcRenderer.send('log', 'Snap re-enabled, scrollY is:', window.scrollY);
+        if (wasPlaying) startVoice();
       }, 150); // Use 150ms to ensure the browser has completed layout on slow hardware
     } else {
       document.documentElement.classList.remove('no-snap');
       isTranslating = false;
+      if (wasPlaying) startVoice();
     }
   }
 
@@ -664,9 +668,17 @@ document.addEventListener('DOMContentLoaded', () => {
                   top: topPos - (window.innerHeight / 2) + (nextEl.offsetHeight / 2),
                   behavior: 'smooth'
                 });
+                setTimeout(() => {
+                   if (isVoicePlaying) playActiveContextVoice();
+                }, 800);
               }
             } else {
               stopVoice();
+              if (localStorage.getItem('kiosk_global_auto') === 'true') {
+                 // Sequence to Map
+                 window.scrollTo({ top: document.querySelectorAll('.panel')[2].offsetTop, behavior: 'smooth' });
+                 setTimeout(() => playActiveContextVoice(), 1000);
+              }
             }
           }
         });
@@ -1003,6 +1015,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  window.addEventListener('kiosk_auto_cancelled', () => {
+     if (isVoicePlaying) {
+        stopVoice();
+     }
+  });
+
   // Initial Content Population
   renderContent();
+  
+  // Global Auto Kiosk Logic
+  if (localStorage.getItem('kiosk_global_auto') === 'true') {
+      setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: 'auto' });
+          setTimeout(() => {
+              isVoicePlaying = true;
+              playActiveContextVoice();
+              
+              // We need to override stopVoice to intercept the end of panels
+              const originalStopVoice = stopVoice;
+              stopVoice = function() {
+                  originalStopVoice();
+                  if (localStorage.getItem('kiosk_global_auto') !== 'true') return;
+                  
+                  const idx = getCurrentPanelIndex();
+                  const panels = document.querySelectorAll('.panel');
+                  if (idx === 0) {
+                      window.scrollTo({ top: panels[1].offsetTop, behavior: 'smooth' });
+                      setTimeout(() => { isVoicePlaying = true; playActiveContextVoice(); }, 1500);
+                  } else if (idx === 2) {
+                      window.scrollTo({ top: panels[3].offsetTop, behavior: 'smooth' });
+                      setTimeout(() => { isVoicePlaying = true; playActiveContextVoice(); }, 1500);
+                  } else if (idx === 3) {
+                      window.location.href = '../index.html';
+                  }
+              };
+          }, 1000);
+      }, 500);
+  }
 });

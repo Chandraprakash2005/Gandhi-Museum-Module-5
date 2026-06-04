@@ -8,8 +8,8 @@ app.commandLine.appendSwitch('log-level', '3');
 
 const rootDir = __dirname;
 const piperExe = path.join(rootDir, 'assets', 'Voice model', 'piper', 'piper.exe');
-const enModel = path.join(rootDir, 'assets', 'Voice model', 'models', 'en_US-lessac-medium.onnx');
-const taModel = path.join(rootDir, 'assets', 'Voice model', 'models', 'ta_IN-Valluvar-medium.onnx');
+const enModel = path.join(rootDir, 'assets', 'Voice model', 'models', 'en_IN-spicor-medium.onnx');
+const taModel = path.join(rootDir, 'assets', 'Voice model', 'models', 'ta_IN-rasa_female-medium.onnx');
 
 // Cleanup function to delete all .wav files in assets/card folders
 function cleanupAudio() {
@@ -181,6 +181,37 @@ function queueAllCards() {
     }
   } catch(e) {
     console.error("Error queueing card2 cards:", e);
+  }
+  // Card 3
+  try {
+    const c3Data = require('./card3/data.js');
+    const c3Dir = path.join(rootDir, 'assets', 'cards', 'card3');
+    
+    function queueCard3Voice(lang, sectionId, text) {
+      if (!text) return;
+      const hash = Buffer.from(encodeURIComponent(text)).toString('base64').substring(0, 32).replace(/[^a-zA-Z0-9]/g, '');
+      ttsQueue.push({ text: text, lang: lang, outputPath: path.join(c3Dir, `card3_voice_${sectionId}_${hash}_${lang}.wav`) });
+    }
+
+    ['en', 'ta'].forEach(lang => {
+      if (c3Data.intro && c3Data.intro[lang]) {
+         c3Data.intro[lang].sections.forEach((sec, idx) => queueCard3Voice(lang, `section-video-${idx}`, sec.text));
+         if (c3Data.intro[lang].finalText) queueCard3Voice(lang, `section-video-final`, c3Data.intro[lang].finalText);
+      }
+      if (c3Data.timeline && c3Data.timeline[lang] && c3Data.timeline[lang].events) {
+         c3Data.timeline[lang].events.forEach(ev => {
+            queueCard3Voice(lang, 'section-timeline', `${ev.year}. ${ev.title}. ${ev.desc}`);
+         });
+      }
+      if (c3Data.associates) {
+         c3Data.associates.forEach(assoc => {
+            const data = assoc[lang];
+            if (data) queueCard3Voice(lang, 'section-associates', `${data.name}, ${data.years}. ${data.desc}`);
+         });
+      }
+    });
+  } catch(e) {
+    console.error("Error queueing card3 cards:", e);
   }
   
   processQueue();
