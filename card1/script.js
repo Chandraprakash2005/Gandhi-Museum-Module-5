@@ -187,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const marker = document.createElement('div');
           marker.className = 'map-marker';
           
-          const hasDetails = loc.points && loc.points.length > 0 && loc.points[0] !== "A principal center during the 1857 revolt.";
+          const hasDetails = loc.points && loc.points.length > 0;
           if (hasDetails) {
             marker.classList.add('detailed');
           }
@@ -203,7 +203,9 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           marker.appendChild(label);
           
-          marker.addEventListener('click', () => showMapInfo(loc));
+          if (hasDetails) {
+            marker.addEventListener('click', () => showMapInfo(loc));
+          }
           mapMarkersContainer.appendChild(marker);
         }
       });

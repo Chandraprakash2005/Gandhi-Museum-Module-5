@@ -1,0 +1,42 @@
+{
+  "name": "card3-gandhi-era-begins",
+  "version": "1.0.0",
+  "description": "Gandhi Era Begins - Gandhi Museum Module 5 Card 3",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --dir"
+  },
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^42.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.gandhi.museum.card3",
+    "productName": "Card3-Gandhi-Era-Begins",
+    "directories": {
+      "output": "exe"
+    },
+    "files": [
+      "main.js",
+      "index.html",
+      "style.css",
+      "script.js",
+      "data.js",
+      "kiosk-idle.js",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../assets/Voice model",
+        "to": "Voice model"
+      }
+    ],
+    "win": {
+      "target": "dir"
+    }
+  }
+}

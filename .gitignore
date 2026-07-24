@@ -13,4 +13,7 @@ Thumbs.db
 assets/cards/**/*.wav
 card1/**/*.wav
 card2/**/*.wav
+card1/exe/
+card2/exe/
+card3/exe/
 *.wav
